@@ -76,6 +76,9 @@ export default function OrdersView({ token }) {
             <div>
               <strong>{order.orderNumber}</strong>
               <p className="muted small">{formatDate(order.createdAt)} · {order.storeName || order.store?.name || order.seller?.businessName || 'ShopSphere seller'}</p>
+              {['out_for_delivery', 'delivered'].includes(order.status) && order.deliveryPartner && (
+                <p className="muted small">🚚 Delivery: {order.deliveryPartner.name} · {order.deliveryPartner.phone}{order.deliveryPartner.deliveryPartner?.vehicleType ? ` · ${order.deliveryPartner.deliveryPartner.vehicleType}` : ''}</p>
+              )}
             </div>
             <div className="badges">
               <span className={`badge badge-${orderStatusFlavor(order.status)}`}>{ORDER_STATUS_LABELS[order.status] || order.status}</span>
@@ -197,6 +200,17 @@ function OrderDetail({ token, orderId, onClose, onCancel, openReview }) {
               {order.shippingAddress?.fullName} · {order.shippingAddress?.phone}<br />
               {order.shippingAddress?.street}, {order.shippingAddress?.pincode}
             </p>
+
+            {['out_for_delivery', 'delivered'].includes(order.status) && order.deliveryPartner && (
+              <>
+                <h3 className="section-title">Delivery agent</h3>
+                <p className="muted small">
+                  🚚 {order.deliveryPartner.name} · {order.deliveryPartner.phone}
+                  {order.deliveryPartner.email && <> · {order.deliveryPartner.email}</>}
+                  {order.deliveryPartner.deliveryPartner?.vehicleType && <> · {order.deliveryPartner.deliveryPartner.vehicleType}</>}
+                </p>
+              </>
+            )}
 
             <h3 className="section-title">Status history</h3>
             <ol className="timeline">

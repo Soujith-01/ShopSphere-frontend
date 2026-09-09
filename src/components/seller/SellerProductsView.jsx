@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getCategories, getProductReviews,
   sellerCreateProduct, sellerUpdateProduct,
   sellerGetProducts, sellerGetProduct, sellerDeleteProduct, sellerSubmitProduct,
   sellerCreateVariant, sellerUpdateVariant, sellerDeleteVariant,
+  generateDescriptionAI, chatDescriptionAI,
 } from '../../api.js'
 import ImageEditorPicker from './ImageEditorPicker.jsx'
 import { useToast } from '../../toast.js'
@@ -190,6 +191,15 @@ function flattenCategories(categories, depth = 0) {
   return out
 }
 
+const AI_QUICK_PROMPTS = [
+  'Make this description shorter',
+  'Make it more professional',
+  'Add key selling points',
+  'Make it SEO friendly',
+  'Rewrite it in simple language',
+  'Generate bullet-point highlights',
+]
+
 function ProductEditor({ token, store, productId, onClose, onSaved }) {
   const toast = useToast()
   const [detail, setDetail] = useState(null) // null until loaded for edits
@@ -200,6 +210,14 @@ function ProductEditor({ token, store, productId, onClose, onSaved }) {
   const [hasVariants, setHasVariants] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // AI description assistant state
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiStatus, setAiStatus] = useState('idle') // 'idle' | 'success' | 'error'
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatBusy, setChatBusy] = useState(false)
+  const chatEndRef = useRef(null)
 
   const isEdit = Boolean(productId)
 
@@ -242,7 +260,101 @@ function ProductEditor({ token, store, productId, onClose, onSaved }) {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [key]: value }))
     if (key === 'category') setForm((f) => ({ ...f, subCategory: '' }))
+    if (key === 'description') setAiStatus('idle')
   }
+
+  // Current product fields in the shape the AI endpoints expect.
+  const currentProductContext = () => {
+    const cat = flatCats.find((c) => c._id === form?.category)
+    const sub = selectedCat?.children?.find((c) => c._id === form?.subCategory)
+    const tags = (form?.tags || '').split(',').map((t) => t.trim()).filter(Boolean)
+    return {
+      name: form?.name || '',
+      category: cat?.name || '',
+      subCategory: sub?.name || '',
+      description: form?.description || '',
+      brand: '',
+      attributes: variants.filter((v) => v.label?.trim()).map((v) => ({ name: 'Variant', value: v.label.trim() })),
+      features: tags,
+      tags,
+      variants: variants.filter((v) => v.label?.trim() || v.sku?.trim())
+        .map((v) => ({ label: v.label || '', sku: v.sku || '' })),
+      imageUrl: images.find((i) => i?.url)?.url || '',
+    }
+  }
+
+  const handleGenerate = async () => {
+    if (!form?.name.trim()) {
+      toast.error('Add a product name first, then generate a description')
+      return
+    }
+    setAiGenerating(true)
+    setAiStatus('idle')
+    try {
+      const ctx = currentProductContext()
+      const res = await generateDescriptionAI(token, {
+        name: ctx.name,
+        category: ctx.category,
+        attributes: ctx.attributes,
+        features: ctx.features,
+        tags: ctx.tags,
+        imageUrl: ctx.imageUrl || undefined,
+      })
+      setForm((f) => ({ ...f, description: res.data.description }))
+      setAiStatus('success')
+      toast.success('Description generated — review and edit before saving ✓')
+    } catch (err) {
+      if (err.status !== 401) {
+        setAiStatus('error')
+        toast.error(err.message || 'Could not generate description. Try again.')
+      }
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  const handleChatSend = async (text) => {
+    const msg = String(text || '').trim()
+    if (!msg || chatBusy) return
+    setChatMessages((prev) => [...prev, { role: 'user', content: msg }])
+    setChatInput('')
+    setChatBusy(true)
+    try {
+      const ctx = currentProductContext()
+      const res = await chatDescriptionAI(token, {
+        message: msg,
+        product: {
+          name: ctx.name,
+          category: ctx.category,
+          description: ctx.description,
+          brand: ctx.brand,
+          attributes: ctx.attributes,
+          features: ctx.features,
+          tags: ctx.tags,
+        },
+        history: chatMessages.slice(-10),
+        imageUrl: ctx.imageUrl || undefined,
+      })
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }])
+    } catch (err) {
+      if (err.status !== 401) {
+        toast.error(err.message || 'AI could not respond. Try again.')
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: '⚠️ Sorry, I could not respond right now. Please try again.' }])
+      }
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
+  const applyToDescription = (text) => {
+    setForm((f) => ({ ...f, description: String(text || '').trim() }))
+    setAiStatus('idle')
+    toast.success('Added to description — review before saving')
+  }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [chatMessages, chatBusy])
 
   const flatCats = useMemo(() => flattenCategories(categories), [categories])
   const selectedCat = categories.find((c) => c._id === form?.category)
@@ -371,11 +483,83 @@ function ProductEditor({ token, store, productId, onClose, onSaved }) {
                 <input value={form.name} onChange={set('name')} placeholder="Wireless Bluetooth Headphones" />
               </label>
 
-              <label>
-                Description
+              <div className="ai-desc">
+                <div className="ai-desc-head">
+                  <span className="fieldset-title">Description</span>
+                  <div className="ai-desc-actions">
+                    <button type="button" className="btn btn-sm btn-primary" onClick={handleGenerate}
+                      disabled={aiGenerating || saving}>
+                      {aiGenerating ? <><Spinner small /> Generating…</> : '✨ Generate Description with AI'}
+                    </button>
+                    <button type="button"
+                      className={`btn btn-sm ${chatOpen ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setChatOpen((o) => !o)}>
+                      🤖 Ask AI
+                    </button>
+                  </div>
+                </div>
                 <textarea value={form.description} onChange={set('description')} rows={3}
                   placeholder="Features, materials, what's in the box…" />
-              </label>
+                {aiStatus === 'success' && (
+                  <p className="ai-note ai-note-success">✨ Description generated — review and edit before saving.</p>
+                )}
+                {aiStatus === 'error' && (
+                  <p className="ai-note ai-note-error">Couldn't generate a description right now — check your connection and try again.</p>
+                )}
+
+                {chatOpen && (
+                  <div className="fieldset ai-chat-panel">
+                    <div className="ai-chat-head">
+                      <span className="fieldset-title">Ask AI · product assistant</span>
+                      <span className="muted small">Uses your product details & first image as context</span>
+                    </div>
+
+                    <div className="ai-chat-suggestions">
+                      {AI_QUICK_PROMPTS.map((p) => (
+                        <button key={p} type="button" className="chip-btn" disabled={chatBusy}
+                          onClick={() => handleChatSend(p)}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="ai-chat-messages">
+                      {chatMessages.length === 0 && (
+                        <p className="muted small" style={{ margin: 0 }}>
+                          Try a suggestion above or type your own instruction — e.g. “add key selling points”.
+                        </p>
+                      )}
+                      {chatMessages.map((m, i) => (
+                        <div key={i} className={`chat-bubble ${m.role === 'user' ? 'mine' : 'theirs'}`}>
+                          <p>{m.content}</p>
+                          {m.role === 'assistant' && (
+                            <button type="button" className="btn btn-sm btn-secondary ai-use-btn"
+                              onClick={() => applyToDescription(m.content)}>
+                              Use this
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {chatBusy && (
+                        <div className="chat-bubble theirs">
+                          <Spinner small /> <span className="muted small">Thinking…</span>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    <div className="chat-input">
+                      <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleChatSend(chatInput) } }}
+                        placeholder="Ask AI to rewrite, shorten, or improve…" />
+                      <button type="button" className="btn btn-sm btn-primary" disabled={chatBusy || !chatInput.trim()}
+                        onClick={() => handleChatSend(chatInput)}>
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="address-grid">
                 <label>

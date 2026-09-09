@@ -7,12 +7,19 @@ import OrdersView from './OrdersView.jsx'
 import WishlistView from './WishlistView.jsx'
 import ProfileView from './ProfileView.jsx'
 import NotificationsView from './NotificationsView.jsx'
+import MessagesView from '../chat/MessagesView.jsx'
+import ReturnsView from './ReturnsView.jsx'
+import ReviewsView from './ReviewsView.jsx'
+import NaturalSearchModal from './NaturalSearchModal.jsx'
 
 // Each tab is its own URL: /customer/explore, /customer/cart, ...
 const NAV = [
   { key: 'explore', label: 'Explore', icon: '🛍️' },
   { key: 'cart', label: 'Cart', icon: '🛒' },
+  { key: 'messages', label: 'Messages', icon: '💬' },
   { key: 'orders', label: 'Orders', icon: '📦' },
+  { key: 'returns', label: 'Returns', icon: '🔄' },
+  { key: 'reviews', label: 'Reviews', icon: '⭐' },
   { key: 'wishlist', label: 'Wishlist', icon: '♥' },
   { key: 'profile', label: 'Profile', icon: '👤' },
   { key: 'notifications', label: 'Notifications', icon: '🔔' },
@@ -46,6 +53,8 @@ export default function CustomerDashboard({ session, onLogout }) {
     clearSession()
     onLogout()
   }
+
+  const [wishlistIds, setWishlistIds] = useState(new Set())
 
   const viewProps = {
     token: session.token,
@@ -91,11 +100,21 @@ export default function CustomerDashboard({ session, onLogout }) {
         <div className="dashboard-content">
           {tab === 'explore' && <ProductsView {...viewProps} />}
           {tab === 'cart' && <CartView {...viewProps} />}
+          {tab === 'messages' && <MessagesView {...viewProps} role="customer" />}
           {tab === 'orders' && <OrdersView {...viewProps} />}
+          {tab === 'returns' && <ReturnsView {...viewProps} />}
+          {tab === 'reviews' && <ReviewsView {...viewProps} />}
           {tab === 'wishlist' && <WishlistView {...viewProps} />}
           {tab === 'profile' && <ProfileView {...viewProps} />}
           {tab === 'notifications' && <NotificationsView {...viewProps} />}
         </div>
+
+        <NaturalSearchModal
+          token={session.token}
+          user={session.user}
+          onCartChanged={() => refreshCartCount(session.token)}
+          wishlistIds={wishlistIds}
+        />
       </main>
     </div>
   )

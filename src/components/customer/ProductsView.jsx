@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { getProducts, getCategories, getWishlist, toggleWishlist } from '../../api.js'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getProducts, getCategories, getWishlist, toggleWishlist, getSearchSuggestions } from '../../api.js'
 import ProductCard from './ProductCard.jsx'
 import ProductModal from './ProductModal.jsx'
 import Loading from '../Loading.jsx'
@@ -22,7 +22,7 @@ function flattenCategories(categories, depth = 0) {
   return out
 }
 
-export default function ProductsView({ token, onCartChanged }) {
+export default function ProductsView({ token, user, onCartChanged }) {
   const toast = useToast()
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -43,6 +43,56 @@ export default function ProductsView({ token, onCartChanged }) {
   const [page, setPage] = useState(1)
 
   const [modalProduct, setModalProduct] = useState(null)
+
+  // Gemini-backed search autocomplete
+  const [suggestions, setSuggestions] = useState([])
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const suggestTimer = useRef(null)
+  const suggestSeq = useRef(0)
+
+  useEffect(() => () => clearTimeout(suggestTimer.current), [])
+
+  const handleSearchChange = (value) => {
+    setSearch(value)
+    const q = value.trim()
+    clearTimeout(suggestTimer.current)
+    if (q.length < 2) {
+      setSuggestions([])
+      setSuggestOpen(false)
+      return
+    }
+    suggestTimer.current = setTimeout(async () => {
+      const seq = ++suggestSeq.current
+      try {
+        const res = await getSearchSuggestions(q, 6)
+        if (seq === suggestSeq.current) {
+          setSuggestions(res.data || [])
+          setSuggestOpen(true)
+        }
+      } catch {
+        if (seq === suggestSeq.current) {
+          setSuggestions([])
+          setSuggestOpen(false)
+        }
+      }
+    }, 300)
+  }
+
+  const applySuggestion = (s) => {
+    setSearch(s)
+    setSuggestions([])
+    setSuggestOpen(false)
+    setPage(1)
+    setAppliedSearch(s)
+  }
+
+  const submitSearch = (e) => {
+    e.preventDefault()
+    setPage(1)
+    setAppliedSearch(search.trim())
+    setSuggestions([])
+    setSuggestOpen(false)
+  }
 
   // Category tree
   useEffect(() => {
@@ -90,12 +140,6 @@ export default function ProductsView({ token, onCartChanged }) {
     })
   }
 
-  const submitSearch = (e) => {
-    e.preventDefault()
-    setPage(1)
-    setAppliedSearch(search.trim())
-  }
-
   const categoryOptions = flattenCategories(categories)
 
   return (
@@ -106,9 +150,26 @@ export default function ProductsView({ token, onCartChanged }) {
             type="search"
             placeholder="Search products…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onFocus={() => { if (suggestions.length > 0) setSuggestOpen(true) }}
+            onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+            autoComplete="off"
           />
           <button type="submit" className="btn btn-primary btn-sm">Search</button>
+          {suggestOpen && suggestions.length > 0 && (
+            <div className="suggest-drop">
+              {suggestions.map((s, i) => (
+                <button
+                  key={`${s}-${i}`}
+                  type="button"
+                  className="suggest-item"
+                  onMouseDown={(e) => { e.preventDefault(); applySuggestion(s) }}
+                >
+                  🔎 {s}
+                </button>
+              ))}
+            </div>
+          )}
         </form>
 
         <select className="select" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }}>
@@ -185,6 +246,7 @@ export default function ProductsView({ token, onCartChanged }) {
         <ProductModal
           product={modalProduct}
           token={token}
+          user={user}
           onClose={() => setModalProduct(null)}
           onCartChanged={onCartChanged}
         />

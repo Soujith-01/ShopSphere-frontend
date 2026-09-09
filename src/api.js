@@ -89,6 +89,8 @@ export const getFeaturedProducts = (token, limit = 12) =>
   request(`/customer/products/featured${buildQuery({ limit })}`, { token })
 export const getProductBySlug = (token, slug) =>
   request(`/customer/products/${slug}`, { token })
+export const getProductQA = (slug) =>
+  request(`/customer/products/${slug}/qa`)
 export const getCategories = () => request('/customer/categories')
 
 // ─── Cart (protected) ───────────────────────────────────────────────────────
@@ -216,6 +218,56 @@ export const sellerGetWithdrawals = (token, params = {}) =>
 export const sellerWithdraw = (token, body) =>
   request('/seller/wallet/withdraw', { method: 'POST', body, token })
 
+// ─── AI: seller description generator + Ask-AI chat (Gemini-backed) ─
+export const generateDescriptionAI = (token, body) =>
+  request('/ai/product-description', { method: 'POST', body, token })
+export const chatDescriptionAI = (token, body) =>
+  request('/ai/product-description/chat', { method: 'POST', body, token })
+
+// ─── AI: search autocomplete (Gemini-backed) ────────────────────────
+export const getSearchSuggestions = (q, limit = 6) =>
+  request(`/ai/search-suggestions${buildQuery({ q, limit })}`)
+
+// ─── Customer: reviews (protected) ────────────────────────────────
+export const getMyReview = (token, productId) =>
+  request(`/customer/reviews/my/${productId}`, { token })
+export const updateReview = (token, reviewId, body) =>
+  request(`/customer/reviews/${reviewId}`, { method: 'PUT', body, token })
+export const deleteReview = (token, reviewId) =>
+  request(`/customer/reviews/${reviewId}`, { method: 'DELETE', token })
+export const getMyReviews = (token, params = {}) =>
+  request(`/customer/reviews/my${buildQuery(params)}`, { token })
+
+// ─── Customer: returns (protected) ────────────────────────────────
+export const getMyReturns = (token, params = {}) =>
+  request(`/customer/returns${buildQuery(params)}`, { token })
+export const getReturn = (token, returnId) =>
+  request(`/customer/returns/${returnId}`, { token })
+export const createReturn = (token, body) =>
+  request('/customer/returns', { method: 'POST', body, token })
+
+// ─── AI: natural language search (protected) ──────────────────────
+export const naturalSearch = (token, body) =>
+  request('/ai/natural-search', { method: 'POST', body, token })
+
+// ─── Customer: product conversations (protected) ────────────────────
+export const customerGetConversations = (token) =>
+  request('/customer/messages', { token })
+export const customerGetConversationMessages = (token, id) =>
+  request(`/customer/messages/${id}`, { token })
+export const customerStartConversation = (token, body) =>
+  request('/customer/messages', { method: 'POST', body, token })
+export const customerSendMessage = (token, id, text) =>
+  request(`/customer/messages/${id}`, { method: 'POST', body: { text }, token })
+
+// ─── Seller: product conversations (protected) ───────────────────────
+export const sellerGetConversations = (token) =>
+  request('/seller/messages', { token })
+export const sellerGetConversationMessages = (token, id) =>
+  request(`/seller/messages/${id}`, { token })
+export const sellerSendMessage = (token, id, text) =>
+  request(`/seller/messages/${id}`, { method: 'POST', body: { text }, token })
+
 // ─── Seller: image upload (multipart → Cloudinary) ───────────────────
 export const sellerUploadImage = async (token, file) => {
   const formData = new FormData()
@@ -249,3 +301,130 @@ export const sellerMarkAllNotificationsRead = (token) =>
   request('/seller/notifications/read-all', { method: 'PUT', token })
 export const sellerDeleteNotification = (token, notificationId) =>
   request(`/seller/notifications/${notificationId}`, { method: 'DELETE', token })
+
+// ─── Support agent: tickets (protected) ─────────────────────────────
+export const supportGetStats = (token) => request('/support/stats', { token })
+export const supportGetTickets = (token, params = {}) =>
+  request(`/support/tickets${buildQuery(params)}`, { token })
+export const supportGetTicket = (token, ticketId) =>
+  request(`/support/tickets/${ticketId}`, { token })
+export const supportAssignTicket = (token, ticketId, agentId = null) =>
+  request(`/support/tickets/${ticketId}/assign`, { method: 'PUT', body: { agentId }, token })
+export const supportReplyTicket = (token, ticketId, message) =>
+  request(`/support/tickets/${ticketId}/messages`, { method: 'POST', body: { message }, token })
+export const supportUpdateTicketStatus = (token, ticketId, body) =>
+  request(`/support/tickets/${ticketId}/status`, { method: 'PUT', body, token })
+export const supportUpdateTicketPriority = (token, ticketId, priority) =>
+  request(`/support/tickets/${ticketId}/priority`, { method: 'PUT', body: { priority }, token })
+
+// ─── Support agent: notifications (protected) ────────────────────────
+export const supportGetNotifications = (token, params = {}) =>
+  request(`/support/notifications${buildQuery(params)}`, { token })
+export const supportMarkNotificationRead = (token, notificationId) =>
+  request(`/support/notifications/${notificationId}/read`, { method: 'PUT', token })
+export const supportMarkAllNotificationsRead = (token) =>
+  request('/support/notifications/read-all', { method: 'PUT', token })
+export const supportDeleteNotification = (token, notificationId) =>
+  request(`/support/notifications/${notificationId}`, { method: 'DELETE', token })
+
+// ─── Admin: analytics (protected) ────────────────────────────────────
+export const adminGetOverview = (token) => request('/admin/analytics', { token })
+export const adminGetRevenueChart = (token, days = 30) =>
+  request(`/admin/analytics/revenue${buildQuery({ days })}`, { token })
+export const adminGetTopSellers = (token, limit = 10) =>
+  request(`/admin/analytics/top-sellers${buildQuery({ limit })}`, { token })
+export const adminGetTopProducts = (token, limit = 10) =>
+  request(`/admin/analytics/top-products${buildQuery({ limit })}`, { token })
+
+// ─── Admin: users (protected) ────────────────────────────────────────
+export const adminGetUserStats = (token) => request('/admin/users/stats', { token })
+export const adminGetUsers = (token, params = {}) =>
+  request(`/admin/users${buildQuery(params)}`, { token })
+export const adminGetUser = (token, userId) => request(`/admin/users/${userId}`, { token })
+export const adminUpdateUser = (token, userId, body) =>
+  request(`/admin/users/${userId}`, { method: 'PUT', body, token })
+export const adminDeactivateUser = (token, userId) =>
+  request(`/admin/users/${userId}/deactivate`, { method: 'PUT', token })
+export const adminActivateUser = (token, userId) =>
+  request(`/admin/users/${userId}/activate`, { method: 'PUT', token })
+export const requestActivation = (email) =>
+  request('/auth/request-activation', { method: 'POST', body: { email } })
+
+// ─── Admin: sellers (protected) ──────────────────────────────────────
+export const adminGetSellers = (token, params = {}) =>
+  request(`/admin/sellers${buildQuery(params)}`, { token })
+export const adminGetSeller = (token, sellerId) => request(`/admin/sellers/${sellerId}`, { token })
+export const adminVerifySeller = (token, sellerId) =>
+  request(`/admin/sellers/${sellerId}/verify`, { method: 'PUT', token })
+export const adminRejectSeller = (token, sellerId, reason) =>
+  request(`/admin/sellers/${sellerId}/reject`, { method: 'PUT', body: { reason }, token })
+export const adminDeactivateSeller = (token, sellerId) =>
+  request(`/admin/sellers/${sellerId}/deactivate`, { method: 'PUT', token })
+export const adminActivateSeller = (token, sellerId) =>
+  request(`/admin/sellers/${sellerId}/activate`, { method: 'PUT', token })
+
+// ─── Admin: products (protected) ─────────────────────────────────────
+export const adminGetProducts = (token, params = {}) =>
+  request(`/admin/products${buildQuery(params)}`, { token })
+export const adminGetModerationQueue = (token, params = {}) =>
+  request(`/admin/products/moderation${buildQuery(params)}`, { token })
+export const adminApproveProduct = (token, productId) =>
+  request(`/admin/products/${productId}/approve`, { method: 'PUT', token })
+export const adminRejectProduct = (token, productId, reason = '') =>
+  request(`/admin/products/${productId}/reject`, { method: 'PUT', body: { reason }, token })
+export const adminToggleFeaturedProduct = (token, productId) =>
+  request(`/admin/products/${productId}/featured`, { method: 'PUT', token })
+
+// ─── Admin: categories (protected) ───────────────────────────────────
+export const adminGetCategories = (token, params = {}) =>
+  request(`/admin/categories${buildQuery(params)}`, { token })
+export const adminCreateCategory = (token, body) =>
+  request('/admin/categories', { method: 'POST', body, token })
+export const adminUpdateCategory = (token, categoryId, body) =>
+  request(`/admin/categories/${categoryId}`, { method: 'PUT', body, token })
+export const adminDeleteCategory = (token, categoryId) =>
+  request(`/admin/categories/${categoryId}`, { method: 'DELETE', token })
+
+// ─── Admin: coupons (protected) ──────────────────────────────────────
+export const adminGetCoupons = (token, params = {}) =>
+  request(`/admin/coupons${buildQuery(params)}`, { token })
+export const adminCreateCoupon = (token, body) =>
+  request('/admin/coupons', { method: 'POST', body, token })
+export const adminUpdateCoupon = (token, couponId, body) =>
+  request(`/admin/coupons/${couponId}`, { method: 'PUT', body, token })
+export const adminToggleCoupon = (token, couponId) =>
+  request(`/admin/coupons/${couponId}/toggle`, { method: 'PUT', token })
+export const adminDeleteCoupon = (token, couponId) =>
+  request(`/admin/coupons/${couponId}`, { method: 'DELETE', token })
+
+// ─── Admin: notifications (protected) ────────────────────────────────
+export const adminGetNotifications = (token, params = {}) =>
+  request(`/admin/notifications${buildQuery(params)}`, { token })
+export const adminMarkNotificationRead = (token, notificationId) =>
+  request(`/admin/notifications/${notificationId}/read`, { method: 'PUT', token })
+export const adminMarkAllNotificationsRead = (token) =>
+  request('/admin/notifications/read-all', { method: 'PUT', token })
+export const adminDeleteNotification = (token, notificationId) =>
+  request(`/admin/notifications/${notificationId}`, { method: 'DELETE', token })
+
+// ─── Admin: orders (protected) ───────────────────────────────────────
+export const adminGetOrderStats = (token) => request('/admin/orders/stats', { token })
+export const adminGetOrders = (token, params = {}) =>
+  request(`/admin/orders${buildQuery(params)}`, { token })
+export const adminGetOrder = (token, orderId) => request(`/admin/orders/${orderId}`, { token })
+
+// ─── Delivery partner (protected) ────────────────────────────────────
+export const deliveryGetStats = (token) => request('/delivery/stats', { token })
+export const deliveryGetAvailable = (token, params = {}) =>
+  request(`/delivery/orders/available${buildQuery(params)}`, { token })
+export const deliveryGetActive = (token) => request('/delivery/orders/active', { token })
+export const deliveryGetHistory = (token, params = {}) =>
+  request(`/delivery/orders/history${buildQuery(params)}`, { token })
+export const deliveryAcceptOrder = (token, orderId) =>
+  request(`/delivery/orders/${orderId}/accept`, { method: 'PUT', token })
+export const deliveryDeliverOrder = (token, orderId, note = '') =>
+  request(`/delivery/orders/${orderId}/deliver`, { method: 'PUT', body: { note }, token })
+export const deliveryUpdateProfile = (token, body) =>
+  request('/delivery/profile', { method: 'PUT', body, token })
+export const deliveryUpdateLocation = (token, coordinates) =>
+  request('/delivery/location', { method: 'PUT', body: { coordinates }, token })

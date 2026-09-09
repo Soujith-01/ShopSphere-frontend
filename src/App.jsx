@@ -5,6 +5,9 @@ import Register from './components/Register.jsx'
 import Login from './components/Login.jsx'
 import CustomerDashboard from './components/customer/CustomerDashboard.jsx'
 import SellerDashboard from './components/seller/SellerDashboard.jsx'
+import AdminDashboard from './components/admin/AdminDashboard.jsx'
+import SupportDashboard from './components/support/SupportDashboard.jsx'
+import DeliveryDashboard from './components/delivery/DeliveryDashboard.jsx'
 import './App.css'
 
 // Seconds the session-expired screen waits before auto-redirecting to login.
@@ -21,6 +24,9 @@ const ROLE_TITLES = {
 const ROLE_HOME = {
   customer: '/customer/explore',
   seller: '/seller/overview',
+  admin: '/admin/overview',
+  support: '/support/overview',
+  delivery: '/delivery/overview',
 }
 
 const homeFor = (session) => {
@@ -123,6 +129,21 @@ export default function App() {
         <SellerDashboard session={session} onLogout={handleLogout} />
       )
     }
+    if (root.startsWith('/admin')) {
+      return (
+        <AdminDashboard session={session} onLogout={handleLogout} />
+      )
+    }
+    if (root.startsWith('/support')) {
+      return (
+        <SupportDashboard session={session} onLogout={handleLogout} />
+      )
+    }
+    if (root.startsWith('/delivery')) {
+      return (
+        <DeliveryDashboard session={session} onLogout={handleLogout} />
+      )
+    }
     if (root === '/login' || root === '/register') {
       // Already signed in — auth pages just send users to their dashboard.
       navigate(homeFor(session))
@@ -139,7 +160,7 @@ export default function App() {
             <h2>You're signed in as {role}</h2>
             <p>
               <strong>{ROLE_TITLES[role] || `${role} dashboard`}</strong> is coming soon.
-              The customer and seller dashboards are the only ones built so far.
+              We're still building this one — check back shortly.
             </p>
             <p className="muted small">Signed in as {session.user?.email}</p>
             <div className="card-actions">

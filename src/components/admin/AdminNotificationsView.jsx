@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
-  sellerGetNotifications, sellerMarkNotificationRead,
-  sellerMarkAllNotificationsRead, sellerDeleteNotification,
+  adminGetNotifications, adminMarkNotificationRead,
+  adminMarkAllNotificationsRead, adminDeleteNotification,
 } from '../../api.js'
 import { useToast } from '../../toast.js'
-import { navigate } from '../../router.js'
 import { formatDateTime } from '../../format.js'
 import Loading from '../Loading.jsx'
 
-export default function SellerNotificationsView({ token }) {
+export default function AdminNotificationsView({ token, onChange }) {
   const toast = useToast()
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -16,7 +15,7 @@ export default function SellerNotificationsView({ token }) {
   const [error, setError] = useState('')
 
   const load = async () => {
-    const res = await sellerGetNotifications(token, { limit: 50 })
+    const res = await adminGetNotifications(token, { limit: 50 })
     setNotifications(res.data?.notifications || [])
     setUnreadCount(res.data?.unreadCount || 0)
   }
@@ -30,9 +29,10 @@ export default function SellerNotificationsView({ token }) {
 
   const handleMarkAll = async () => {
     try {
-      await sellerMarkAllNotificationsRead(token)
+      await adminMarkAllNotificationsRead(token)
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnreadCount(0)
+      onChange?.()
       toast.success('All notifications marked as read')
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
@@ -42,31 +42,24 @@ export default function SellerNotificationsView({ token }) {
   const handleMark = async (n) => {
     if (n.isRead) return
     try {
-      await sellerMarkNotificationRead(token, n._id)
+      await adminMarkNotificationRead(token, n._id)
       setNotifications((prev) => prev.map((x) => (x._id === n._id ? { ...x, isRead: true } : x)))
       setUnreadCount((c) => Math.max(0, c - 1))
+      onChange?.()
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
     }
   }
 
-  // Open a notification: mark it read, and jump straight to the conversation
-  // when it's a customer question so the seller can answer it.
-  const handleOpen = async (n) => {
-    if (!n.isRead) await handleMark(n)
-    if (n.data?.entityType === 'conversation' && n.data?.entityId) {
-      navigate(`/seller/messages?conversation=${n.data.entityId}`)
-    }
-  }
-
   const handleDelete = async (n) => {
     try {
-      await sellerDeleteNotification(token, n._id)
+      await adminDeleteNotification(token, n._id)
       setNotifications((prev) => {
         const next = prev.filter((x) => x._id !== n._id)
         if (!n.isRead) setUnreadCount((c) => Math.max(0, c - 1))
         return next
       })
+      onChange?.()
       toast.success('Notification deleted')
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
@@ -90,7 +83,7 @@ export default function SellerNotificationsView({ token }) {
       <div className="empty-state">
         <div className="empty-emoji">🔔</div>
         <h2>No notifications yet</h2>
-        <p>New orders, product approvals, and review alerts will appear here.</p>
+        <p>Seller approval requests and platform alerts will appear here.</p>
       </div>
     )
   }
@@ -109,7 +102,7 @@ export default function SellerNotificationsView({ token }) {
           <div
             key={n._id}
             className={`notification ${n.isRead ? '' : 'unread'}`}
-            onClick={() => handleOpen(n)}
+            onClick={() => handleMark(n)}
           >
             <div className="notification-body">
               <p className="notification-title">

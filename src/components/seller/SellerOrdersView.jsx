@@ -35,9 +35,10 @@ export default function SellerOrdersView({ token }) {
 
   const advance = async (order) => {
     // The next step depends on the current state machine.
+    // Seller only handles up to 'shipped'. After that, a delivery partner
+    // picks up the order (out_for_delivery) and marks it delivered.
     const map = {
       placed: 'confirmed', confirmed: 'packed', packed: 'shipped',
-      shipped: 'out_for_delivery', out_for_delivery: 'delivered',
     }
     const next = map[order.status]
     if (!next) return
@@ -115,6 +116,9 @@ export default function SellerOrdersView({ token }) {
                   <p className="muted small">
                     {o.customer?.name || 'Customer'} · {o.customer?.phone || '—'} · {formatDateTime(o.createdAt)}
                   </p>
+                  {['out_for_delivery', 'delivered'].includes(o.status) && o.deliveryPartner && (
+                    <p className="muted small">🚚 Delivery: {o.deliveryPartner.name} · {o.deliveryPartner.phone}{o.deliveryPartner.deliveryPartner?.vehicleType ? ` · ${o.deliveryPartner.deliveryPartner.vehicleType}` : ''}</p>
+                  )}
                 </div>
                 <div className="badges">
                   <span className={`badge badge-${orderStatusFlavor(o.status)}`}>{ORDER_STATUS_LABELS[o.status] || o.status}</span>
@@ -170,7 +174,6 @@ export default function SellerOrdersView({ token }) {
 const advanceLabel = (status) => {
   const map = {
     placed: 'Confirm', confirmed: 'Mark packed', packed: 'Mark shipped',
-    shipped: 'Start delivery', out_for_delivery: 'Mark delivered',
   }
   return map[status] || ''
 }
@@ -248,6 +251,17 @@ function OrderDetailModal({ token, orderId, onClose, onAdvance, onCancel }) {
               {order.shippingAddress?.fullName} · {order.shippingAddress?.phone}<br />
               {order.shippingAddress?.street}, {order.shippingAddress?.pincode}
             </p>
+
+            {['out_for_delivery', 'delivered'].includes(order.status) && order.deliveryPartner && (
+              <>
+                <h3 className="section-title">Delivery agent</h3>
+                <p className="muted small">
+                  🚚 {order.deliveryPartner.name} · {order.deliveryPartner.phone}
+                  {order.deliveryPartner.email && <> · {order.deliveryPartner.email}</>}
+                  {order.deliveryPartner.deliveryPartner?.vehicleType && <> · {order.deliveryPartner.deliveryPartner.vehicleType}</>}
+                </p>
+              </>
+            )}
 
             <h3 className="section-title">Status history</h3>
             <ol className="timeline">

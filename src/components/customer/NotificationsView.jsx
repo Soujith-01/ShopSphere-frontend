@@ -3,6 +3,7 @@ import {
   getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification,
 } from '../../api.js'
 import { formatDateTime } from '../../format.js'
+import { navigate } from '../../router.js'
 import { useToast } from '../../toast.js'
 import Loading from '../Loading.jsx'
 
@@ -47,6 +48,15 @@ export default function NotificationsView({ token }) {
       setUnreadCount((c) => Math.max(0, c - 1))
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
+    }
+  }
+
+  // Open a notification: mark it read, and jump straight to the conversation
+  // when it's a product question so the user can read/reply.
+  const handleOpen = async (n) => {
+    if (!n.isRead) await handleMark(n)
+    if (n.data?.entityType === 'conversation' && n.data?.entityId) {
+      navigate(`/customer/messages?conversation=${n.data.entityId}`)
     }
   }
 
@@ -100,7 +110,7 @@ export default function NotificationsView({ token }) {
           <div
             key={n._id}
             className={`notification ${n.isRead ? '' : 'unread'}`}
-            onClick={() => handleMark(n)}
+            onClick={() => handleOpen(n)}
           >
             <div className="notification-body">
               <p className="notification-title">

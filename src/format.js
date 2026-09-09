@@ -46,7 +46,8 @@ export const payStatusLabel = (status) =>
 export const orderStatusFlavor = (status) => {
   if (status === 'delivered' || status === 'refunded') return 'success'
   if (status === 'cancelled') return 'danger'
-  if (status === 'placed' || status === 'confirmed' || status === 'packed') return 'status'
+  if (['placed', 'confirmed', 'packed', 'shipped', 'out_for_delivery',
+    'return_requested', 'return_approved', 'return_shipped', 'return_received'].includes(status)) return 'status'
   return 'muted'
 }
 
@@ -134,4 +135,45 @@ export const NEXT_ORDER_ACTIONS = {
   packed: { status: 'shipped', label: 'Mark shipped' },
   shipped: { status: 'out_for_delivery', label: 'Start delivery' },
   out_for_delivery: { status: 'delivered', label: 'Mark delivered' },
+}
+
+// ─── Support-side labels ────────────────────────────────────────────
+export const TICKET_STATUS_LABELS = {
+  open: 'Open',
+  in_progress: 'In progress',
+  waiting_customer: 'Waiting on customer',
+  resolved: 'Resolved',
+  closed: 'Closed',
+}
+
+export const ticketStatusFlavor = (status) => {
+  if (status === 'resolved') return 'success'
+  if (status === 'closed') return 'muted'
+  if (status === 'open') return 'danger'
+  return 'status' // in_progress, waiting_customer
+}
+
+export const TICKET_PRIORITY_LABELS = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  urgent: 'Urgent',
+}
+
+export const ticketPriorityFlavor = (priority) => {
+  if (priority === 'urgent') return 'danger'
+  if (priority === 'high') return 'status'
+  if (priority === 'medium') return 'muted'
+  return 'muted'
+}
+
+export const TICKET_CATEGORY_LABELS = {
+  order_issue: 'Order issue',
+  payment: 'Payment',
+  return: 'Return',
+  refund: 'Refund',
+  product_query: 'Product query',
+  delivery: 'Delivery',
+  account: 'Account',
+  other: 'Other',
 }

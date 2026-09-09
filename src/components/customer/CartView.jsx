@@ -4,6 +4,7 @@ import {
   applyCoupon, removeCoupon, getCustomerMe, checkout,
 } from '../../api.js'
 import { formatINR, PAYMENT_METHOD_LABELS, productImageUrl } from '../../format.js'
+import { navigate } from '../../router.js'
 import { useToast } from '../../toast.js'
 import Loading from '../Loading.jsx'
 import Spinner from '../Spinner.jsx'
@@ -230,7 +231,9 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
       }
       const res = await checkout(token, body)
       setDone(res.data)
-      onPlaced()
+      // Don't close the modal here — the success screen (green tick + track
+      // button) must stay visible until the user acts on it. onPlaced() is
+      // invoked from the buttons/backdrop below.
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
     } finally {
@@ -238,25 +241,44 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
     }
   }
 
+  const handleClose = () => {
+    onPlaced() // close modal + refresh cart count
+  }
+
+  const handleTrackOrder = () => {
+    onPlaced()
+    navigate('/customer/orders')
+  }
+
   if (done) {
     return (
-      <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-backdrop" onClick={handleClose}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <div className="card-emoji">✅</div>
+          <div className="success-tick" aria-hidden="true">
+            <svg viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" fill="none" />
+              <path fill="none" d="M14 27l8 8 16-16" />
+            </svg>
+          </div>
           <h2>Order placed!</h2>
           <p>
             Your order was split into <strong>{done.subOrders.length}</strong> seller
             {done.subOrders.length > 1 ? 's' : ''} for fulfilment.
           </p>
           {paymentMethod === 'cod' ? (
-            <p className="muted">You'll pay cash on delivery. Track it from the Orders tab.</p>
+            <p className="muted">You'll pay cash on delivery.</p>
           ) : (
             <p className="muted">
               Your {PAYMENT_METHOD_LABELS[paymentMethod]} payment is <strong>pending</strong> —
               the online payment gateway is not connected yet, so no money has been charged.
             </p>
           )}
-          <button type="button" className="btn btn-primary btn-block" onClick={onClose}>Done</button>
+          <div className="modal-actions" style={{ justifyContent: 'center' }}>
+            <button type="button" className="btn btn-primary" onClick={handleTrackOrder}>
+              Track order
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={handleClose}>Done</button>
+          </div>
         </div>
       </div>
     )

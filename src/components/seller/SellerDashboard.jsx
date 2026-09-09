@@ -13,6 +13,7 @@ import SellerReturnsView from './SellerReturnsView.jsx'
 import SellerStoreView from './SellerStoreView.jsx'
 import SellerWalletView from './SellerWalletView.jsx'
 import SellerNotificationsView from './SellerNotificationsView.jsx'
+import MessagesView from '../chat/MessagesView.jsx'
 
 // Each tab is its own URL: /seller/overview, /seller/products, ...
 const NAV = [
@@ -22,6 +23,7 @@ const NAV = [
   { key: 'orders', label: 'Orders', icon: '📦' },
   { key: 'returns', label: 'Returns', icon: '↩️' },
   { key: 'wallet', label: 'Wallet', icon: '💰' },
+  { key: 'messages', label: 'Messages', icon: '💬' },
   { key: 'notifications', label: 'Notifications', icon: '🔔' },
 ]
 
@@ -54,7 +56,7 @@ export default function SellerDashboard({ session, onLogout }) {
     onLogout()
   }
 
-  const goTo = (key) => setTab(key)
+  const goTo = (key) => navigate(`/seller/${key}`)
 
   const current = NAV.find((n) => n.key === tab)
 
@@ -112,6 +114,7 @@ export default function SellerDashboard({ session, onLogout }) {
           {tab === 'orders' && <SellerOrdersView token={session.token} />}
           {tab === 'returns' && <SellerReturnsView token={session.token} />}
           {tab === 'wallet' && <SellerWalletView token={session.token} />}
+          {tab === 'messages' && <MessagesView token={session.token} user={session.user} role="seller" />}
           {tab === 'notifications' && <SellerNotificationsView token={session.token} />}
         </div>
       </main>

@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { login, saveSession } from '../api.js'
+import { login, saveSession, requestActivation } from '../api.js'
 import { useToast } from '../toast.js'
 import Spinner from './Spinner.jsx'
 
 export default function Login({ onSwitchToRegister, onAuthed }) {
   const toast = useToast()
+  const [pendingSeller, setPendingSeller] = useState(false) // 'pending' | 'rejected' | false
+  const [deactivated, setDeactivated] = useState(null)
+  const [requestSent, setRequestSent] = useState(false)
+  const [requesting, setRequesting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -46,10 +50,107 @@ export default function Login({ onSwitchToRegister, onAuthed }) {
       toast.success('✅ Logged in successfully')
       onAuthed?.({ token: res.data.accessToken, user: res.data.user })
     } catch (err) {
-      toast.error(err.message)
+      if (err.status === 403 && err.message?.includes('pending admin approval')) {
+        setPendingSeller('pending')
+      } else if (err.status === 403 && err.message?.includes('rejected')) {
+        setPendingSeller('rejected')
+      } else if (err.status === 403 && err.message?.includes('deactivated')) {
+        setDeactivated(email.trim())
+      } else {
+        toast.error(err.message)
+      }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleRequestActivation = async () => {
+    if (!deactivated) return
+    try {
+      setRequesting(true)
+      await requestActivation(deactivated)
+      setRequestSent(true)
+      toast.success('✅ Reactivation request sent to admin team')
+    } catch (err) {
+      toast.error(err.message || 'Failed to send request')
+    } finally {
+      setRequesting(false)
+    }
+  }
+
+  if (deactivated) {
+    if (requestSent) {
+      return (
+        <div className="card">
+          <div className="card-emoji">📬</div>
+          <h2>Request sent</h2>
+          <p className="card-sub">
+            Your reactivation request has been sent to the admin team. You'll be able to log in once an admin reviews and activates your account.
+          </p>
+          <ul className="pending-steps">
+            <li>✅ Reactivation request sent</li>
+            <li>⏳ Admin review — in progress</li>
+            <li>🔒 Log in — unlocked after activation</li>
+          </ul>
+          <div className="card-actions">
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => { setDeactivated(null); setRequestSent(false) }}>
+              Back to log in
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="card">
+        <div className="card-emoji">🚫</div>
+        <h2>Account deactivated</h2>
+        <p className="card-sub">
+          Your account has been deactivated by an admin. You cannot log in until your account is reactivated.
+        </p>
+        <ul className="pending-steps">
+          <li>⛔ Account deactivated</li>
+          <li>📩 Request reactivation below</li>
+          <li>🔒 Log in — unlocked after activation</li>
+        </ul>
+        <div className="card-actions" style={{ flexDirection: 'column', gap: 10 }}>
+          <button type="button" className="btn btn-primary btn-block" onClick={handleRequestActivation} disabled={requesting}>
+            {requesting ? <><Spinner small /> Sending request…</> : '📩 Send reactivation request to admin'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-block" onClick={() => setDeactivated(null)}>
+            Back to log in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (pendingSeller) {
+    const rejected = pendingSeller === 'rejected'
+    return (
+      <div className="card">
+        <div className="card-emoji">{rejected ? '⛔' : '⏳'}</div>
+        <h2>{rejected ? 'Application rejected' : 'Approval pending'}</h2>
+        <p className="card-sub">
+          {rejected
+            ? 'Your seller application was rejected by an admin. You cannot log in with this account. If you believe this is a mistake, contact support.'
+            : "Your seller application is still awaiting admin approval. You'll be able to log in as soon as an admin approves it."}
+        </p>
+        <ul className="pending-steps">
+          <li>✅ Registration complete</li>
+          {rejected ? (
+            <li>⛔ Admin review — application rejected</li>
+          ) : (
+            <li>⏳ Admin approval — in progress</li>
+          )}
+          <li>🔒 Log in — unlocked after approval</li>
+        </ul>
+        <div className="card-actions">
+          <button type="button" className="btn btn-secondary btn-block" onClick={() => setPendingSeller(false)}>
+            Back
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

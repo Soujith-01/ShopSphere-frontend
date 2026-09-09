@@ -5,6 +5,7 @@ import Spinner from './Spinner.jsx'
 
 export default function Register({ onSwitchToLogin, onAuthed }) {
   const toast = useToast()
+  const [pendingApproval, setPendingApproval] = useState(null)
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -72,6 +73,13 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
     try {
       setSubmitting(true)
       const res = await register(payload)
+
+      // Sellers don't get a session yet — an admin must approve them first.
+      if (res.data?.requiresApproval) {
+        setPendingApproval(res.data.user)
+        return
+      }
+
       saveSession(res.data.user, res.data.accessToken)
       toast.success('✅ Registered successfully')
       onAuthed?.({ token: res.data.accessToken, user: res.data.user })
@@ -80,6 +88,34 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (pendingApproval) {
+    return (
+      <div className="card">
+        <div className="card-emoji">⏳</div>
+        <h2>Seller application sent</h2>
+        <p className="card-sub">
+          Thanks, {pendingApproval.name}! Your application for
+          {' '}<strong>{form.businessName.trim() || 'your store'}</strong> is now
+          awaiting admin approval.
+        </p>
+        <ul className="pending-steps">
+          <li>✅ Registration complete</li>
+          <li>⏳ Admin approval — in progress</li>
+          <li>🔒 Log in — unlocked after approval</li>
+        </ul>
+        <p className="muted small">
+          We'll review your application shortly. Once approved, log in with
+          <strong> {pendingApproval.email}</strong> to open your seller dashboard.
+        </p>
+        <div className="card-actions">
+          <button type="button" className="btn btn-primary btn-block" onClick={onSwitchToLogin}>
+            Back to log in
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -165,8 +201,15 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
         )}
 
         <button className="btn btn-primary" type="submit" disabled={submitting}>
-          {submitting ? <><Spinner small /> Creating account…</> : 'Create account'}
+          {submitting
+            ? <><Spinner small /> Creating account…</>
+            : isSeller ? 'Submit seller application' : 'Create account'}
         </button>
+        {isSeller && (
+          <p className="muted small" style={{ marginTop: 8 }}>
+            Your application will be reviewed by an admin. You can log in once it's approved.
+          </p>
+        )}
       </form>
 
       <p className="card-foot">
