@@ -15,6 +15,7 @@ const ACTIVE_FILTERS = [
   { value: '', label: 'All' },
   { value: 'true', label: 'Active' },
   { value: 'false', label: 'Inactive' },
+  { value: 'requested', label: '📩 Reactivation requested' },
 ]
 
 export default function AdminUsersView({ token }) {
@@ -44,7 +45,8 @@ export default function AdminUsersView({ token }) {
     setError('')
     adminGetUsers(token, {
       role: role || undefined,
-      isActive: isActive === '' ? undefined : isActive,
+      isActive: isActive === '' || isActive === 'requested' ? undefined : isActive,
+      activationRequested: isActive === 'requested' ? 'true' : undefined,
       search: appliedSearch || undefined,
       page,
       limit: 20,
@@ -173,6 +175,9 @@ export default function AdminUsersView({ token }) {
                     <span className={`badge ${u.isActive ? 'badge-success' : 'badge-danger'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
+                    {!u.isActive && u.activationRequestedAt && (
+                      <span className="badge badge-status">📩 Reactivation requested</span>
+                    )}
                     {u.isEmailVerified && <span className="badge badge-muted">Email verified</span>}
                   </div>
                 </div>
@@ -186,7 +191,9 @@ export default function AdminUsersView({ token }) {
                     </button>
                     {u.isActive
                       ? <button type="button" className="btn btn-sm btn-danger-ghost" onClick={() => deactivate(u)}>Deactivate</button>
-                      : <button type="button" className="btn btn-sm btn-primary" onClick={() => reactivate(u)}>Reactivate</button>}
+                      : <button type="button" className="btn btn-sm btn-primary" onClick={() => reactivate(u)}>
+                          {u.activationRequestedAt ? 'Approve reactivation' : 'Reactivate'}
+                        </button>}
                   </div>
                 </div>
               </div>

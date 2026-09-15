@@ -8,11 +8,13 @@ import { useToast } from '../../toast.js'
 import { TICKET_PRIORITY_LABELS } from '../../format.js'
 import Loading from '../Loading.jsx'
 import SupportTicketsView from './SupportTicketsView.jsx'
+import SupportChatView from './SupportChatView.jsx'
 import SupportNotificationsView from './SupportNotificationsView.jsx'
 
-// Each tab is its own URL: /support/overview, /support/tickets, ...
+// Each tab is its own URL: /support/overview, /support/chat, ...
 const NAV = [
   { key: 'overview', label: 'Overview', icon: '📊' },
+  { key: 'chat', label: 'Live chat', icon: '💬' },
   { key: 'tickets', label: 'Tickets', icon: '🎫' },
   { key: 'notifications', label: 'Notifications', icon: '🔔' },
 ]
@@ -106,6 +108,14 @@ export default function SupportDashboard({ session, onLogout }) {
             stats === null
               ? <Loading label="Loading your queue…" />
               : <OverviewTab stats={stats} goTo={(key) => navigate(`/support/${key}`)} />
+          )}
+
+          {tab === 'chat' && (
+            <SupportChatView
+              token={session.token}
+              meId={session.user?._id}
+              onChange={() => setTicketsTick((t) => t + 1)}
+            />
           )}
 
           {tab === 'tickets' && (

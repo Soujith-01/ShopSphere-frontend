@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   clearSession, logout,
   sellerGetDashboard, sellerGetRecentOrders, sellerGetRevenueChart, sellerGetStore,
+  sellerReshareSheet, sellerSyncFromSheet,
 } from '../../api.js'
-import { navigate, usePath } from '../../router.js'
+import { navigate, usePath, useNavRefresh } from '../../router.js'
 import { useToast } from '../../toast.js'
 import { formatINR, ORDER_STATUS_LABELS, orderStatusFlavor, formatDateTime } from '../../format.js'
 import Loading from '../Loading.jsx'
@@ -35,6 +36,8 @@ export default function SellerDashboard({ session, onLogout }) {
   const path = usePath()
   const urlTab = path.replace('/seller/', '').replace(/\/+$/, '')
   const tab = TAB_KEYS.includes(urlTab) ? urlTab : 'overview'
+  // Re-clicking the current tab remounts the view below — fresh state/data.
+  const refreshTick = useNavRefresh()
   const [store, setStore] = useState(undefined) // undefined = loading, null = no store yet
   const toast = useToast()
 
@@ -95,7 +98,16 @@ export default function SellerDashboard({ session, onLogout }) {
         </header>
 
         <div className="dashboard-content">
-          {tab === 'overview' && <OverviewTab token={session.token} store={store} goTo={goTo} />}
+          {/* key={refreshTick}: re-clicking the current tab remounts the view. */}
+          <div key={refreshTick}>
+          {tab === 'overview' && (
+            <OverviewTab
+              token={session.token}
+              store={store}
+              goTo={goTo}
+              onStoreSaved={setStore}
+            />
+          )}
 
           {tab === 'store' && (
             <SellerStoreView
@@ -116,6 +128,7 @@ export default function SellerDashboard({ session, onLogout }) {
           {tab === 'wallet' && <SellerWalletView token={session.token} />}
           {tab === 'messages' && <MessagesView token={session.token} user={session.user} role="seller" />}
           {tab === 'notifications' && <SellerNotificationsView token={session.token} />}
+          </div>
         </div>
       </main>
     </div>
@@ -137,12 +150,14 @@ function NoStore({ goTo }) {
   )
 }
 
-function OverviewTab({ token, store, goTo }) {
+function OverviewTab({ token, store, goTo, onStoreSaved }) {
   const toast = useToast()
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState([])
   const [chart, setChart] = useState([])
   const [error, setError] = useState('')
+  const [resharing, setResharing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -176,6 +191,46 @@ function OverviewTab({ token, store, goTo }) {
   }
   if (!stats) return <Loading label="Loading your dashboard…" />
 
+  // Ask the API to share the sheet with the seller's current email (and revoke
+  // any old address) — for sellers who changed their account email.
+  const handleReshare = async () => {
+    setResharing(true)
+    try {
+      const res = await sellerReshareSheet(token)
+      if (res.data) onStoreSaved?.(res.data)
+      toast.success(res.message || 'Sheet access restored ✓')
+    } catch (err) {
+      if (err.status !== 401) toast.error(err.message)
+    } finally {
+      setResharing(false)
+    }
+  }
+
+  // Pull the seller's Google Sheet back in (new rows + edits to existing ones).
+  const handleSyncFromSheet = async () => {
+    setSyncing(true)
+    try {
+      const res = await sellerSyncFromSheet(token)
+      const { imported = [], updated = [], errors = [] } = res.data || {}
+      const summary = [
+        imported.length ? `${imported.length} added` : '',
+        updated.length ? `${updated.length} updated` : '',
+      ].filter(Boolean).join(' · ')
+
+      if (errors.length) {
+        toast.error(`Synced with ${errors.length} problem row${errors.length === 1 ? '' : 's'}: ${errors[0].reason}`)
+      } else if (summary) {
+        toast.success(`Google Sheet synced — ${summary}`)
+      } else {
+        toast.success('Already up to date with your Google Sheet')
+      }
+    } catch (err) {
+      if (err.status !== 401) toast.error(err.message)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const maxRevenue = Math.max(1, ...chart.map((d) => d.revenue || 0))
   const dayLabel = (dateStr) => {
     const d = new Date(`${dateStr}T00:00:00`)
@@ -192,6 +247,51 @@ function OverviewTab({ token, store, goTo }) {
               <p className="muted small" style={{ margin: '4px 0 0' }}>Create your store to start listing products and receiving orders.</p>
             </div>
             <button type="button" className="btn btn-primary" onClick={() => goTo('store')}>Create my store</button>
+          </div>
+        </div>
+      )}
+
+      {store?.googleSheet?.spreadsheetUrl && (
+        <div className="panel" style={{ marginBottom: 22 }}>
+          <div className="panel-head" style={{ margin: 0 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>My Store</h2>
+              <p className="muted small" style={{ margin: '4px 0 0' }}>
+                {store.name} — products you add here sync straight to your Google Sheet.
+                {store.googleSheet.sharedWith
+                  ? ` Shared with ${store.googleSheet.sharedWith}.`
+                  : ' Not shared with your email yet.'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleSyncFromSheet}
+                disabled={syncing}
+                title="Import new rows from your sheet and apply your price/stock edits"
+              >
+                {syncing ? 'Syncing…' : '🔄 Sync Products'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleReshare}
+                disabled={resharing}
+                title="Changed your account email? Re-share your sheet with your current address."
+              >
+                {resharing ? 'Re-sharing…' : 'Re-share access'}
+              </button>
+              <a
+                href={store.googleSheet.spreadsheetUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                Open Google Sheet ↗
+              </a>
+            </div>
           </div>
         </div>
       )}

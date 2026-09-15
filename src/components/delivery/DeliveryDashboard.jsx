@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   clearSession, logout, getMe,
-  deliveryGetStats, deliveryGetActive, deliveryGetAvailable,
+  deliveryGetStats, deliveryGetActive, deliveryGetAvailable, deliveryGetActiveReturns,
   deliveryUpdateProfile,
 } from '../../api.js'
 import { navigate, usePath } from '../../router.js'
@@ -9,13 +9,16 @@ import { useToast } from '../../toast.js'
 import { formatDateTime, ORDER_STATUS_LABELS } from '../../format.js'
 import Loading from '../Loading.jsx'
 import DeliveryShipmentsView from './DeliveryShipmentsView.jsx'
+import DeliveryReturnsView from './DeliveryReturnsView.jsx'
 import DeliveryProfileView from './DeliveryProfileView.jsx'
 
 // Each tab is its own URL: /delivery/overview, /delivery/available, ...
 const NAV = [
   { key: 'overview', label: 'Overview', icon: '📊' },
+  { key: 'assigned', label: 'Assigned to me', icon: '🎯' },
   { key: 'available', label: 'Available', icon: '🚚' },
   { key: 'active', label: 'My deliveries', icon: '📦' },
+  { key: 'returns', label: 'Return pickups', icon: '↩️' },
   { key: 'history', label: 'History', icon: '🕘' },
   { key: 'profile', label: 'Profile', icon: '👤' },
 ]
@@ -34,6 +37,7 @@ export default function DeliveryDashboard({ session, onLogout }) {
   // login snapshot can be stale after the partner goes on/off duty.
   const [partner, setPartner] = useState(null)
   const [availableCount, setAvailableCount] = useState(null)
+  const [activeReturnsCount, setActiveReturnsCount] = useState(0)
   // Bumped whenever a shipment changes so nav badges stay truthful.
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -50,6 +54,15 @@ export default function DeliveryDashboard({ session, onLogout }) {
     let cancelled = false
     deliveryGetAvailable(session.token, { page: 1, limit: 1 })
       .then((res) => { if (!cancelled) setAvailableCount(res.pagination?.total ?? 0) })
+      .catch(() => { /* badge is best-effort */ })
+    return () => { cancelled = true }
+  }, [session.token, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Count of active return pickups assigned to me → sidebar badge.
+  useEffect(() => {
+    let cancelled = false
+    deliveryGetActiveReturns(session.token)
+      .then((res) => { if (!cancelled) setActiveReturnsCount((res.data || []).length) })
       .catch(() => { /* badge is best-effort */ })
     return () => { cancelled = true }
   }, [session.token, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -88,6 +101,9 @@ export default function DeliveryDashboard({ session, onLogout }) {
               {item.key === 'available' && availableCount > 0 && (
                 <span className="nav-badge">{availableCount}</span>
               )}
+              {item.key === 'returns' && activeReturnsCount > 0 && (
+                <span className="nav-badge">{activeReturnsCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -116,12 +132,19 @@ export default function DeliveryDashboard({ session, onLogout }) {
               : <OverviewTab token={session.token} partner={partner} onSavePartner={savePartner} />
           )}
 
-          {['available', 'active', 'history'].includes(tab) && (
+          {['assigned', 'available', 'active', 'history'].includes(tab) && (
             <DeliveryShipmentsView
               key={tab}
               mode={tab}
               token={session.token}
               partner={partner}
+              onChange={() => setRefreshTick((t) => t + 1)}
+            />
+          )}
+
+          {tab === 'returns' && (
+            <DeliveryReturnsView
+              token={session.token}
               onChange={() => setRefreshTick((t) => t + 1)}
             />
           )}

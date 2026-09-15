@@ -4,15 +4,17 @@ import {
   adminGetOverview, adminGetRevenueChart, adminGetTopSellers, adminGetTopProducts,
   adminGetNotifications,
 } from '../../api.js'
-import { navigate, usePath } from '../../router.js'
+import { navigate, usePath, useNavRefresh } from '../../router.js'
 import { useToast } from '../../toast.js'
 import { formatINR, formatDate, formatDateTime, productImageUrl } from '../../format.js'
 import Loading from '../Loading.jsx'
 import AdminUsersView from './AdminUsersView.jsx'
 import AdminSellersView from './AdminSellersView.jsx'
+import AdminDeliveryView from './AdminDeliveryView.jsx'
 import AdminProductsView from './AdminProductsView.jsx'
 import AdminCategoriesView from './AdminCategoriesView.jsx'
 import AdminOrdersView from './AdminOrdersView.jsx'
+import AdminReturnsView from './AdminReturnsView.jsx'
 import AdminCouponsView from './AdminCouponsView.jsx'
 import AdminNotificationsView from './AdminNotificationsView.jsx'
 
@@ -21,9 +23,11 @@ const NAV = [
   { key: 'overview', label: 'Overview', icon: '📊' },
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'sellers', label: 'Sellers', icon: '🏪' },
+  { key: 'delivery', label: 'Delivery agents', icon: '🛵' },
   { key: 'products', label: 'Products', icon: '🛍️' },
   { key: 'categories', label: 'Categories', icon: '🗂️' },
   { key: 'orders', label: 'Orders', icon: '📦' },
+  { key: 'returns', label: 'Returns', icon: '↩️' },
   { key: 'coupons', label: 'Coupons', icon: '🎟️' },
   { key: 'notifications', label: 'Notifications', icon: '🔔' },
 ]
@@ -42,6 +46,8 @@ export default function AdminDashboard({ session, onLogout }) {
   const path = usePath()
   const urlTab = path.replace('/admin/', '').replace(/\/+$/, '')
   const tab = TAB_KEYS.includes(urlTab) ? urlTab : 'overview'
+  // Re-clicking the current tab remounts the view below — fresh state/data.
+  const refreshTick = useNavRefresh()
   const toast = useToast()
 
   // Overview is fetched in the shell so the sidebar can badge the moderation
@@ -49,7 +55,6 @@ export default function AdminDashboard({ session, onLogout }) {
   // change those numbers (approve/reject, verify sellers) call onChange().
   const [overview, setOverview] = useState(null)
   const [unreadNotifs, setUnreadNotifs] = useState(0)
-  const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +73,17 @@ export default function AdminDashboard({ session, onLogout }) {
     return () => { cancelled = true }
   }, [session.token, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refreshOverview = () => setRefreshTick((t) => t + 1)
+  const refreshOverview = () => {
+    adminGetOverview(session.token)
+      .then((res) => setOverview(res.data))
+      .catch(() => {})
+  }
+
+  const refreshNotifs = () => {
+    adminGetNotifications(session.token, { limit: 1 })
+      .then((res) => setUnreadNotifs(res.data?.unreadCount || 0))
+      .catch(() => {})
+  }
 
   const handleLogout = async () => {
     try { await logout(session.token) } catch { /* session already gone */ }
@@ -78,6 +93,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
   const current = NAV.find((n) => n.key === tab)
   const pendingCount = overview?.products?.pending ?? 0
+  const pendingDeliveryAgents = overview?.deliveryAgents?.pending ?? 0
 
   return (
     <div className="dashboard">
@@ -95,6 +111,9 @@ export default function AdminDashboard({ session, onLogout }) {
               <span className="nav-label">{item.label}</span>
               {item.key === 'products' && pendingCount > 0 && (
                 <span className="nav-badge">{pendingCount}</span>
+              )}
+              {item.key === 'delivery' && pendingDeliveryAgents > 0 && (
+                <span className="nav-badge">{pendingDeliveryAgents}</span>
               )}
               {item.key === 'notifications' && unreadNotifs > 0 && (
                 <span className="nav-badge">{unreadNotifs}</span>
@@ -120,6 +139,8 @@ export default function AdminDashboard({ session, onLogout }) {
         </header>
 
         <div className="dashboard-content">
+          {/* key={refreshTick}: re-clicking the current tab remounts the view. */}
+          <div key={refreshTick}>
           {tab === 'overview' && (
             overview === null
               ? <Loading label="Loading platform overview…" />
@@ -128,11 +149,14 @@ export default function AdminDashboard({ session, onLogout }) {
 
           {tab === 'users' && <AdminUsersView token={session.token} />}
           {tab === 'sellers' && <AdminSellersView token={session.token} onChange={refreshOverview} />}
+          {tab === 'delivery' && <AdminDeliveryView token={session.token} />}
           {tab === 'products' && <AdminProductsView token={session.token} onChange={refreshOverview} />}
           {tab === 'categories' && <AdminCategoriesView token={session.token} />}
           {tab === 'orders' && <AdminOrdersView token={session.token} />}
+          {tab === 'returns' && <AdminReturnsView token={session.token} />}
           {tab === 'coupons' && <AdminCouponsView token={session.token} />}
-          {tab === 'notifications' && <AdminNotificationsView token={session.token} onChange={() => setRefreshTick((t) => t + 1)} />}
+          {tab === 'notifications' && <AdminNotificationsView token={session.token} onChange={refreshNotifs} />}
+          </div>
         </div>
       </main>
     </div>

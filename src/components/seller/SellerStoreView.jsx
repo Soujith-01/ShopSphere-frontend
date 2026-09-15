@@ -230,6 +230,21 @@ function StoreSummary({ store, onEdit }) {
               </p>
             )}
         </div>
+        {store.googleSheet?.spreadsheetUrl && (
+          <div className="store-fact">
+            <span className="muted small">Inventory Sheet</span>
+            <p style={{ margin: 0 }}>
+              <a
+                href={store.googleSheet.spreadsheetUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 600, color: 'var(--accent)', textDecoration: 'underline' }}
+              >
+                📊 Open Google Spreadsheet ↗
+              </a>
+            </p>
+          </div>
+        )}
       </div>
 
       <p className="muted small" style={{ margin: 0 }}>

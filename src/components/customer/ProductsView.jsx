@@ -44,54 +44,141 @@ export default function ProductsView({ token, user, onCartChanged }) {
 
   const [modalProduct, setModalProduct] = useState(null)
 
-  // Gemini-backed search autocomplete
+  // Search autocomplete — updates on every keystroke. Suggestions come from
+  // the catalog (instant DB prefix match, enriched with fast AI phrases),
+  // debounced 150ms so we don't fire per character, with a stale-guard keyed
+  // on the query text so slow responses for old input never overwrite newer
+  // suggestions.
+  // Search autocomplete & recent searches
   const [suggestions, setSuggestions] = useState([])
   const [suggestOpen, setSuggestOpen] = useState(false)
   const suggestTimer = useRef(null)
-  const suggestSeq = useRef(0)
+  const latestQuery = useRef('')
+  const searchContainerRef = useRef(null)
+
+  const storageKey = `shopsphere_recent_searches_${user?._id || user?.id || 'guest'}`
+
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Synchronize recent searches if user changes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      setRecentSearches(raw ? JSON.parse(raw) : [])
+    } catch {
+      setRecentSearches([])
+    }
+  }, [storageKey])
 
   useEffect(() => () => clearTimeout(suggestTimer.current), [])
+
+  // Close suggestions when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setSuggestOpen(false)
+      }
+    }
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSuggestOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  const addRecentSearch = (term) => {
+    const q = (term || '').trim()
+    if (!q) return
+    setRecentSearches((prev) => {
+      const next = [q, ...prev.filter((s) => s.toLowerCase() !== q.toLowerCase())].slice(0, 8)
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next))
+      } catch {
+        // ignore storage errors
+      }
+      return next
+    })
+  }
+
+  const removeRecentSearch = (e, termToRemove) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setRecentSearches((prev) => {
+      const next = prev.filter((s) => s !== termToRemove)
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next))
+      } catch {
+        // ignore storage errors
+      }
+      return next
+    })
+  }
+
+  const clearAllRecentSearches = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setRecentSearches([])
+    try {
+      localStorage.removeItem(storageKey)
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const applySearchQuery = (q) => {
+    const trimmed = (q || '').trim()
+    setSearch(trimmed)
+    setSuggestions([])
+    setSuggestOpen(false)
+    setPage(1)
+    setAppliedSearch(trimmed)
+    if (trimmed) {
+      addRecentSearch(trimmed)
+    }
+  }
 
   const handleSearchChange = (value) => {
     setSearch(value)
     const q = value.trim()
+    latestQuery.current = q
     clearTimeout(suggestTimer.current)
-    if (q.length < 2) {
+    if (q.length < 1) {
       setSuggestions([])
-      setSuggestOpen(false)
+      setSuggestOpen(true)
       return
     }
     suggestTimer.current = setTimeout(async () => {
-      const seq = ++suggestSeq.current
       try {
         const res = await getSearchSuggestions(q, 6)
-        if (seq === suggestSeq.current) {
+        // Only apply if the user hasn't typed something newer in the meantime.
+        if (latestQuery.current === q) {
           setSuggestions(res.data || [])
           setSuggestOpen(true)
         }
       } catch {
-        if (seq === suggestSeq.current) {
+        if (latestQuery.current === q) {
           setSuggestions([])
-          setSuggestOpen(false)
         }
       }
-    }, 300)
-  }
-
-  const applySuggestion = (s) => {
-    setSearch(s)
-    setSuggestions([])
-    setSuggestOpen(false)
-    setPage(1)
-    setAppliedSearch(s)
+    }, 150)
   }
 
   const submitSearch = (e) => {
     e.preventDefault()
-    setPage(1)
-    setAppliedSearch(search.trim())
-    setSuggestions([])
-    setSuggestOpen(false)
+    applySearchQuery(search)
   }
 
   // Category tree
@@ -142,32 +229,125 @@ export default function ProductsView({ token, user, onCartChanged }) {
 
   const categoryOptions = flattenCategories(categories)
 
+  const queryTrimmed = search.trim().toLowerCase()
+  const matchingRecent = queryTrimmed
+    ? recentSearches.filter((s) => s.toLowerCase().includes(queryTrimmed))
+    : recentSearches
+  const filteredSuggestions = suggestions.filter(
+    (s) => !matchingRecent.some((r) => r.toLowerCase() === s.toLowerCase())
+  )
+  const showRecentOnly = !queryTrimmed && recentSearches.length > 0
+  const hasDropdownContent =
+    showRecentOnly || matchingRecent.length > 0 || filteredSuggestions.length > 0
+
   return (
     <div className="products-view">
       <div className="filters">
-        <form className="search-form" onSubmit={submitSearch}>
+        <form
+          ref={searchContainerRef}
+          className="search-form"
+          onSubmit={submitSearch}
+        >
           <input
             type="search"
             placeholder="Search products…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => { if (suggestions.length > 0) setSuggestOpen(true) }}
-            onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+            onFocus={() => setSuggestOpen(true)}
             autoComplete="off"
           />
           <button type="submit" className="btn btn-primary btn-sm">Search</button>
-          {suggestOpen && suggestions.length > 0 && (
-            <div className="suggest-drop">
-              {suggestions.map((s, i) => (
-                <button
-                  key={`${s}-${i}`}
-                  type="button"
-                  className="suggest-item"
-                  onMouseDown={(e) => { e.preventDefault(); applySuggestion(s) }}
-                >
-                  🔎 {s}
-                </button>
-              ))}
+
+          {suggestOpen && hasDropdownContent && (
+            <div className="suggest-drop" role="listbox">
+              {showRecentOnly ? (
+                <>
+                  <div className="suggest-header">
+                    <span className="suggest-header-title">Recent searches</span>
+                    <button
+                      type="button"
+                      className="suggest-clear-btn"
+                      onMouseDown={clearAllRecentSearches}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  <div className="suggest-list">
+                    {recentSearches.map((s) => (
+                      <div
+                        key={s}
+                        className="suggest-item suggest-recent-item"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          applySearchQuery(s)
+                        }}
+                      >
+                        <span className="suggest-icon" aria-hidden="true">🕒</span>
+                        <span className="suggest-text">{s}</span>
+                        <button
+                          type="button"
+                          className="suggest-delete-btn"
+                          title="Remove from history"
+                          aria-label={`Remove ${s} from recent searches`}
+                          onMouseDown={(e) => removeRecentSearch(e, s)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {matchingRecent.length > 0 && (
+                    <div className="suggest-group">
+                      <div className="suggest-section-label">Recent searches</div>
+                      {matchingRecent.map((s) => (
+                        <div
+                          key={s}
+                          className="suggest-item suggest-recent-item"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            applySearchQuery(s)
+                          }}
+                        >
+                          <span className="suggest-icon" aria-hidden="true">🕒</span>
+                          <span className="suggest-text">{s}</span>
+                          <button
+                            type="button"
+                            className="suggest-delete-btn"
+                            title="Remove from history"
+                            aria-label={`Remove ${s} from recent searches`}
+                            onMouseDown={(e) => removeRecentSearch(e, s)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {filteredSuggestions.length > 0 && (
+                    <div className="suggest-group">
+                      {matchingRecent.length > 0 && (
+                        <div className="suggest-section-label">Suggestions</div>
+                      )}
+                      {filteredSuggestions.map((s, i) => (
+                        <div
+                          key={`${s}-${i}`}
+                          className="suggest-item"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            applySearchQuery(s)
+                          }}
+                        >
+                          <span className="suggest-icon" aria-hidden="true">🔎</span>
+                          <span className="suggest-text">{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </form>

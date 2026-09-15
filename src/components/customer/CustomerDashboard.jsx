@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCart, logout, clearSession } from '../../api.js'
-import { navigate, usePath } from '../../router.js'
+import { navigate, usePath, useNavRefresh } from '../../router.js'
 import ProductsView from './ProductsView.jsx'
 import CartView from './CartView.jsx'
 import OrdersView from './OrdersView.jsx'
 import WishlistView from './WishlistView.jsx'
 import ProfileView from './ProfileView.jsx'
+import SupportView from './SupportView.jsx'
 import NotificationsView from './NotificationsView.jsx'
 import MessagesView from '../chat/MessagesView.jsx'
 import ReturnsView from './ReturnsView.jsx'
 import ReviewsView from './ReviewsView.jsx'
-import NaturalSearchModal from './NaturalSearchModal.jsx'
 
 // Each tab is its own URL: /customer/explore, /customer/cart, ...
 const NAV = [
@@ -21,6 +21,7 @@ const NAV = [
   { key: 'returns', label: 'Returns', icon: '🔄' },
   { key: 'reviews', label: 'Reviews', icon: '⭐' },
   { key: 'wishlist', label: 'Wishlist', icon: '♥' },
+  { key: 'support', label: 'Support', icon: '🎧' },
   { key: 'profile', label: 'Profile', icon: '👤' },
   { key: 'notifications', label: 'Notifications', icon: '🔔' },
 ]
@@ -33,6 +34,9 @@ export default function CustomerDashboard({ session, onLogout }) {
   const path = usePath()
   const urlTab = path.replace('/customer/', '').replace(/\/+$/, '')
   const tab = TAB_KEYS.includes(urlTab) ? urlTab : 'explore'
+  // Re-clicking the current tab (e.g. "Explore" while exploring) remounts the
+  // view below — fresh state and data, like a page reload.
+  const refreshTick = useNavRefresh()
   const [cartCount, setCartCount] = useState(0)
 
   const refreshCartCount = useCallback(async (token) => {
@@ -53,8 +57,6 @@ export default function CustomerDashboard({ session, onLogout }) {
     clearSession()
     onLogout()
   }
-
-  const [wishlistIds, setWishlistIds] = useState(new Set())
 
   const viewProps = {
     token: session.token,
@@ -98,23 +100,21 @@ export default function CustomerDashboard({ session, onLogout }) {
         </header>
 
         <div className="dashboard-content">
-          {tab === 'explore' && <ProductsView {...viewProps} />}
-          {tab === 'cart' && <CartView {...viewProps} />}
-          {tab === 'messages' && <MessagesView {...viewProps} role="customer" />}
-          {tab === 'orders' && <OrdersView {...viewProps} />}
-          {tab === 'returns' && <ReturnsView {...viewProps} />}
-          {tab === 'reviews' && <ReviewsView {...viewProps} />}
-          {tab === 'wishlist' && <WishlistView {...viewProps} />}
-          {tab === 'profile' && <ProfileView {...viewProps} />}
-          {tab === 'notifications' && <NotificationsView {...viewProps} />}
+          {/* key={refreshTick}: bumping it (re-click current tab) unmounts and
+              remounts the active view — data refetches, filters reset. */}
+          <div key={refreshTick}>
+            {tab === 'explore' && <ProductsView {...viewProps} />}
+            {tab === 'cart' && <CartView {...viewProps} />}
+            {tab === 'messages' && <MessagesView {...viewProps} role="customer" />}
+            {tab === 'orders' && <OrdersView {...viewProps} />}
+            {tab === 'returns' && <ReturnsView {...viewProps} />}
+            {tab === 'reviews' && <ReviewsView {...viewProps} />}
+            {tab === 'wishlist' && <WishlistView {...viewProps} />}
+            {tab === 'support' && <SupportView {...viewProps} />}
+            {tab === 'profile' && <ProfileView {...viewProps} />}
+            {tab === 'notifications' && <NotificationsView {...viewProps} />}
+          </div>
         </div>
-
-        <NaturalSearchModal
-          token={session.token}
-          user={session.user}
-          onCartChanged={() => refreshCartCount(session.token)}
-          wishlistIds={wishlistIds}
-        />
       </main>
     </div>
   )

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  deliveryGetAvailable, deliveryGetActive, deliveryGetHistory,
-  deliveryAcceptOrder, deliveryDeliverOrder,
+  deliveryGetAvailable, deliveryGetActive, deliveryGetHistory, deliveryGetAssigned,
+  deliveryAcceptOrder, deliveryDeliverOrder, deliveryStartOrder,
 } from '../../api.js'
 import { useToast } from '../../toast.js'
 import { navigate } from '../../router.js'
@@ -11,12 +11,20 @@ import {
 } from '../../format.js'
 import Loading from '../Loading.jsx'
 
-// One component powers the three shipment tabs. Each mode maps to a backend
+// One component powers the four shipment tabs. Each mode maps to a backend
 // list endpoint and its own action set:
+//   assigned  → shipped orders auto-assigned to me (Start delivery)
 //   available → shipped orders without a partner (Accept)
 //   active    → my out-for-delivery orders (Mark delivered)
 //   history   → my delivered + cancelled orders (view only)
 const META = {
+  assigned: {
+    title: 'Assigned to me',
+    emptyEmoji: '🎯',
+    emptyTitle: 'No assigned deliveries',
+    emptyText: 'When you\'re on duty, new shipments are randomly assigned to you the moment a seller ships them.',
+    emptyCta: null,
+  },
   available: {
     title: 'Available shipments',
     emptyEmoji: '🚚',
@@ -58,9 +66,10 @@ export default function DeliveryShipmentsView({ mode, token, partner, onChange }
     setLoading(true)
     setError('')
     const request =
-      mode === 'available' ? deliveryGetAvailable(token, { page, limit: 20 })
-        : mode === 'active' ? deliveryGetActive(token)
-          : deliveryGetHistory(token, { page, limit: 20 })
+      mode === 'assigned' ? deliveryGetAssigned(token)
+        : mode === 'available' ? deliveryGetAvailable(token, { page, limit: 20 })
+          : mode === 'active' ? deliveryGetActive(token)
+            : deliveryGetHistory(token, { page, limit: 20 })
 
     request
       .then((res) => {
@@ -90,6 +99,22 @@ export default function DeliveryShipmentsView({ mode, token, partner, onChange }
       toast.success(`${order.orderNumber} accepted — head out and deliver it 🛵`)
       setRefresh((r) => r + 1)
       onChange?.()
+    } catch (err) {
+      if (err.status !== 401) toast.error(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const start = async (order) => {
+    if (busyId) return
+    setBusyId(order._id)
+    try {
+      await deliveryStartOrder(token, order._id)
+      toast.success(`${order.orderNumber} started — head out and deliver it 🛵`)
+      setRefresh((r) => r + 1)
+      onChange?.()
+      if (detailId === order._id) setDetailId(null)
     } catch (err) {
       if (err.status !== 401) toast.error(err.message)
     } finally {
@@ -193,6 +218,7 @@ export default function DeliveryShipmentsView({ mode, token, partner, onChange }
               mode={mode}
               busy={busyId === o._id}
               onAccept={() => accept(o)}
+              onStart={() => start(o)}
               onDeliver={() => deliver(o)}
               onView={() => setDetailId(o._id)}
             />
@@ -210,6 +236,7 @@ export default function DeliveryShipmentsView({ mode, token, partner, onChange }
           busy={busyId === detailId}
           onClose={() => setDetailId(null)}
           onAccept={accept}
+          onStart={start}
           onDeliver={deliver}
         />
       )}
@@ -217,7 +244,7 @@ export default function DeliveryShipmentsView({ mode, token, partner, onChange }
   )
 }
 
-function ShipmentCard({ order: o, mode, busy, onAccept, onDeliver, onView }) {
+function ShipmentCard({ order: o, mode, busy, onAccept, onStart, onDeliver, onView }) {
   const items = o.items || []
   return (
     <div className="order-card">
@@ -264,6 +291,11 @@ function ShipmentCard({ order: o, mode, busy, onAccept, onDeliver, onView }) {
       <div className="order-card-foot">
         <span className="order-total">{formatINR(o.total)}</span>
         <div className="order-actions">
+          {mode === 'assigned' && (
+            <button type="button" className="btn btn-sm btn-primary" onClick={onStart} disabled={busy}>
+              {busy ? 'Starting…' : 'Start delivery'}
+            </button>
+          )}
           {mode === 'available' && (
             <button type="button" className="btn btn-sm btn-primary" onClick={onAccept} disabled={busy}>
               {busy ? 'Accepting…' : 'Accept shipment'}
@@ -295,7 +327,7 @@ function Pager({ page, pages, onGo }) {
   )
 }
 
-function ShipmentModal({ order: o, busy, onClose, onAccept, onDeliver }) {
+function ShipmentModal({ order: o, busy, onClose, onAccept, onStart, onDeliver }) {
   const toast = useToast()
   useEffect(() => { if (!o) toast.error('This shipment is no longer available — it may have been accepted by another partner.') }, [o]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!o) return null
@@ -377,6 +409,11 @@ function ShipmentModal({ order: o, busy, onClose, onAccept, onDeliver }) {
         </ol>
 
         <div className="modal-actions">
+          {o.status === 'shipped' && o.deliveryPartner && (
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onStart(o)}>
+              {busy ? 'Starting…' : 'Start delivery'}
+            </button>
+          )}
           {o.status === 'shipped' && !o.deliveryPartner && (
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onAccept(o)}>
               {busy ? 'Accepting…' : 'Accept shipment'}

@@ -5,7 +5,7 @@ import {
 } from '../../api.js'
 import { useToast } from '../../toast.js'
 import {
-  formatINR, formatDateTime, productImageUrl,
+  formatINR, formatDateTime, productImageUrl, getDiscountLabel,
   PRODUCT_STATUS_LABELS, productStatusFlavor,
 } from '../../format.js'
 import Loading from '../Loading.jsx'
@@ -214,6 +214,7 @@ export default function AdminProductsView({ token, onChange }) {
 }
 
 function ProductDetailModal({ product, onClose, onApprove, onReject }) {
+  const discountLabel = getDiscountLabel(product?.discount)
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
@@ -221,6 +222,11 @@ function ProductDetailModal({ product, onClose, onApprove, onReject }) {
 
         <div className="modal-grid">
           <div className="modal-media">
+            {discountLabel && (
+              <span className="product-discount-badge modal-discount-badge" aria-label={`Discount: ${discountLabel}`}>
+                {discountLabel}
+              </span>
+            )}
             {productImageUrl(product)
               ? <img src={productImageUrl(product)} alt={product.name} />
               : <div className="img-ph img-ph-lg">📦</div>}

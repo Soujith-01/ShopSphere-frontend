@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { register, saveSession } from '../api.js'
+import { register, registerDelivery, saveSession } from '../api.js'
 import { useToast } from '../toast.js'
 import Spinner from './Spinner.jsx'
+
+const VEHICLE_TYPES = ['Bike', 'Scooter', 'Car', 'Van', 'Truck']
 
 export default function Register({ onSwitchToLogin, onAuthed }) {
   const toast = useToast()
   const [pendingApproval, setPendingApproval] = useState(null)
+  const [pendingApprovalRole, setPendingApprovalRole] = useState('seller')
+  const [pendingName, setPendingName] = useState('')
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -13,11 +17,17 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
     role: 'customer',
     businessName: '',
     businessType: 'individual',
+    phone: '',
+    vehicleType: '',
+    vehicleNumber: '',
+    licenseNumber: '',
   })
+  const [licenseFile, setLicenseFile] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
   const isSeller = form.role === 'seller'
+  const isDelivery = form.role === 'delivery'
 
   const set = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -25,6 +35,17 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
       if (!(key in prev)) return prev
       const next = { ...prev }
       delete next[key]
+      return next
+    })
+  }
+
+  const handleLicenseChange = (e) => {
+    const file = e.target.files?.[0] || null
+    setLicenseFile(file)
+    setFieldErrors((prev) => {
+      if (!('licensePhoto' in prev)) return prev
+      const next = { ...prev }
+      delete next.licensePhoto
       return next
     })
   }
@@ -51,32 +72,56 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
     if (isSeller && !form.businessName.trim()) {
       nextErrors.businessName = 'Business name is required for sellers.'
     }
+    if (isDelivery) {
+      if (!form.phone.trim()) nextErrors.phone = 'Phone number is required for delivery agents.'
+      if (!form.vehicleType) nextErrors.vehicleType = 'Vehicle type is required.'
+      if (!form.vehicleNumber.trim()) nextErrors.vehicleNumber = 'Vehicle number is required.'
+      if (!form.licenseNumber.trim()) nextErrors.licenseNumber = 'Driving license number is required.'
+      if (!licenseFile) nextErrors.licensePhoto = 'Please upload a photo of your driving license.'
+    }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors)
       return
     }
 
-    // Send exactly the fields the backend register endpoint expects
-    // (Backend/APIS/auth/auth.js): customers get name/email/password/role,
-    // sellers additionally send businessName + businessType.
-    const payload = {
-      name: form.name.trim(),
-      email: form.email.trim(),
-      password: form.password,
-      role: isSeller ? 'seller' : 'customer',
-    }
-    if (isSeller) {
-      payload.businessName = form.businessName.trim()
-      payload.businessType = form.businessType
-    }
-
+    // Customers/sellers go as JSON; delivery agents go as multipart/form-data
+    // because the license photo has to be uploaded with the registration.
+    let res
     try {
       setSubmitting(true)
-      const res = await register(payload)
 
-      // Sellers don't get a session yet — an admin must approve them first.
+      if (isDelivery) {
+        const payload = new FormData()
+        payload.append('name', form.name.trim())
+        payload.append('email', form.email.trim())
+        payload.append('password', form.password)
+        payload.append('role', 'delivery')
+        payload.append('phone', form.phone.trim())
+        payload.append('vehicleType', form.vehicleType)
+        payload.append('vehicleNumber', form.vehicleNumber.trim())
+        payload.append('licenseNumber', form.licenseNumber.trim())
+        payload.append('licensePhoto', licenseFile)
+        res = await registerDelivery(payload)
+      } else {
+        const payload = {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          password: form.password,
+          role: isSeller ? 'seller' : 'customer',
+        }
+        if (isSeller) {
+          payload.businessName = form.businessName.trim()
+          payload.businessType = form.businessType
+        }
+        res = await register(payload)
+      }
+
+      // Sellers and delivery agents don't get a session yet — an admin must
+      // approve them first.
       if (res.data?.requiresApproval) {
         setPendingApproval(res.data.user)
+        setPendingApprovalRole(isDelivery ? 'delivery' : 'seller')
+        setPendingName(form.name.trim())
         return
       }
 
@@ -91,23 +136,24 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
   }
 
   if (pendingApproval) {
+    const isAgent = pendingApprovalRole === 'delivery'
     return (
       <div className="card">
-        <div className="card-emoji">⏳</div>
-        <h2>Seller application sent</h2>
+        <div className="card-emoji">{isAgent ? '🛵' : '⏳'}</div>
+        <h2>{isAgent ? 'Delivery partner application sent' : 'Seller application sent'}</h2>
         <p className="card-sub">
-          Thanks, {pendingApproval.name}! Your application for
-          {' '}<strong>{form.businessName.trim() || 'your store'}</strong> is now
-          awaiting admin approval.
+          Thanks, {pendingName}! Your {isAgent ? 'documents' : 'application for'}
+          {isAgent && <> are now awaiting admin verification.</>}
+          {!isAgent && <>{' '}<strong>{form.businessName.trim() || 'your store'}</strong> is now awaiting admin approval.</>}
         </p>
         <ul className="pending-steps">
           <li>✅ Registration complete</li>
-          <li>⏳ Admin approval — in progress</li>
+          <li>⏳ Admin {isAgent ? 'document verification' : 'approval'} — in progress</li>
           <li>🔒 Log in — unlocked after approval</li>
         </ul>
         <p className="muted small">
-          We'll review your application shortly. Once approved, log in with
-          <strong> {pendingApproval.email}</strong> to open your seller dashboard.
+          We'll review your {isAgent ? 'vehicle details and driving license' : 'application'} shortly. Once approved, log in with
+          <strong> {pendingApproval.email}</strong>{isAgent ? ' to start accepting deliveries.' : ' to open your seller dashboard.'}
         </p>
         <div className="card-actions">
           <button type="button" className="btn btn-primary btn-block" onClick={onSwitchToLogin}>
@@ -122,7 +168,7 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
     <div className="card">
       <div className="card-emoji">🛍️</div>
       <h2>Create your account</h2>
-      <p className="card-sub">Join ShopSphere as a customer or a seller.</p>
+      <p className="card-sub">Join ShopSphere as a customer, seller or delivery agent.</p>
 
       <form onSubmit={handleSubmit} className="form">
         <label>
@@ -170,6 +216,7 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
           <select value={form.role} onChange={set('role')}>
             <option value="customer">Shop as a customer</option>
             <option value="seller">Sell on ShopSphere (seller)</option>
+            <option value="delivery">Deliver for ShopSphere (delivery agent)</option>
           </select>
         </label>
 
@@ -200,14 +247,90 @@ export default function Register({ onSwitchToLogin, onAuthed }) {
           </>
         )}
 
+        {isDelivery && (
+          <>
+            <label>
+              Phone number
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={set('phone')}
+                placeholder="9876543210"
+                required
+                autoComplete="tel"
+              />
+              {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
+            </label>
+
+            <label>
+              Vehicle type
+              <select value={form.vehicleType} onChange={set('vehicleType')}>
+                <option value="">— Select vehicle —</option>
+                {VEHICLE_TYPES.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              {fieldErrors.vehicleType && <span className="field-error">{fieldErrors.vehicleType}</span>}
+            </label>
+
+            <label>
+              Vehicle number
+              <input
+                type="text"
+                value={form.vehicleNumber}
+                onChange={set('vehicleNumber')}
+                placeholder="KA05MJ4831"
+                required
+                style={{ textTransform: 'uppercase' }}
+              />
+              {fieldErrors.vehicleNumber && <span className="field-error">{fieldErrors.vehicleNumber}</span>}
+            </label>
+
+            <label>
+              Driving license number
+              <input
+                type="text"
+                value={form.licenseNumber}
+                onChange={set('licenseNumber')}
+                placeholder="KA0520230001234"
+                required
+                style={{ textTransform: 'uppercase' }}
+              />
+              {fieldErrors.licenseNumber && <span className="field-error">{fieldErrors.licenseNumber}</span>}
+            </label>
+
+            <label>
+              Driving license photo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLicenseChange}
+                required
+              />
+              {licenseFile && (
+                <span className="muted small">Selected: {licenseFile.name}</span>
+              )}
+              {fieldErrors.licensePhoto && <span className="field-error">{fieldErrors.licensePhoto}</span>}
+            </label>
+          </>
+        )}
+
         <button className="btn btn-primary" type="submit" disabled={submitting}>
           {submitting
             ? <><Spinner small /> Creating account…</>
-            : isSeller ? 'Submit seller application' : 'Create account'}
+            : isSeller ? 'Submit seller application'
+              : isDelivery ? 'Submit delivery application'
+                : 'Create account'}
         </button>
         {isSeller && (
           <p className="muted small" style={{ marginTop: 8 }}>
             Your application will be reviewed by an admin. You can log in once it's approved.
+          </p>
+        )}
+        {isDelivery && (
+          <p className="muted small" style={{ marginTop: 8 }}>
+            Our team verifies your vehicle details and driving license. You can log in once approved —
+            then orders are assigned to you automatically when you're on duty.
           </p>
         )}
       </form>

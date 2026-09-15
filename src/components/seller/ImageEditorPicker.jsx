@@ -1,14 +1,24 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { sellerUploadImage } from '../../api.js'
+import { EXPORT_MAX_DIM, MAX_UPLOAD_BYTES, downscaleImageFile } from '../../imageResize.js'
 import { useToast } from '../../toast.js'
 import Spinner from '../Spinner.jsx'
 
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // must match the backend limit
-const EXPORT_MAX_DIM = 1600
-
 // Reusable picker: choose image(s) → crop/resize each in a modal → upload to
 // Cloudinary → onDone([{ url, publicId }, …]).
-export default function ImageEditorPicker({ token, multiple = false, onDone, label = 'Upload image', hint }) {
+//
+// Works on desktop (file picker) and mobile (gallery, or the camera when
+// `capture="environment"` is passed), and reports its in-flight state through
+// onBusyChange so the parent can block form submission while uploading.
+export default function ImageEditorPicker({
+  token,
+  multiple = false,
+  onDone,
+  label = 'Upload image',
+  hint,
+  capture = null,
+  onBusyChange,
+}) {
   const toast = useToast()
   const inputId = useId()
   const [queue, setQueue] = useState([])      // files awaiting editing
@@ -50,12 +60,6 @@ export default function ImageEditorPicker({ token, multiple = false, onDone, lab
     }
   }
 
-  const skipCurrent = () => {
-    const next = current + 1
-    if (next >= queue.length) finish(done)
-    else setCurrent(next)
-  }
-
   const cancelAll = () => {
     if (queue.length > 0) toast.info('Upload cancelled')
     finish([])
@@ -70,9 +74,20 @@ export default function ImageEditorPicker({ token, multiple = false, onDone, lab
 
   const open = Boolean(queue.length > 0 && current < queue.length)
 
+  // Tell the parent form an upload is in flight (it disables its Save button).
+  useEffect(() => { onBusyChange?.(uploading) }, [uploading, onBusyChange])
+
   return (
     <div className="coupon-form">
-      <input type="file" id={inputId} accept="image/*" multiple={multiple} hidden onChange={pickFiles} />
+      <input
+        type="file"
+        id={inputId}
+        accept="image/*"
+        multiple={multiple}
+        capture={capture || undefined}
+        hidden
+        onChange={pickFiles}
+      />
       <label htmlFor={inputId} className="btn btn-sm btn-secondary" style={{ cursor: 'pointer' }}>
         {uploading ? <><Spinner small /> Uploading…</> : label}
       </label>
@@ -82,7 +97,6 @@ export default function ImageEditorPicker({ token, multiple = false, onDone, lab
         <CropModal
           file={queue[current]}
           onConfirm={uploadAndContinue}
-          onSkip={skipCurrent}
           onCancel={cancelAll}
           isLast={current + 1 >= queue.length}
         />
@@ -100,7 +114,7 @@ const RATIOS = [
   { value: '2:3', label: 'Portrait (2:3)' },
 ]
 
-function CropModal({ file, onConfirm, onSkip, onCancel, isLast }) {
+function CropModal({ file, onConfirm, onCancel, isLast }) {
   const toast = useToast()
   const [preview, setPreview] = useState('')
   const [natural, setNatural] = useState(null) // { w, h } once image loads
@@ -178,12 +192,19 @@ function CropModal({ file, onConfirm, onSkip, onCancel, isLast }) {
     }
   }
 
-  const skipOriginal = () => {
+  const skipOriginal = async () => {
     if (file.size > MAX_UPLOAD_BYTES) {
       toast.error('Image is larger than 8 MB — crop it first or choose a smaller file')
       return
     }
-    onSkip()
+
+    // No crop, but still shrink it in the browser so mobile uploads stay small.
+    setWorking(true)
+    try {
+      await onConfirm(await downscaleImageFile(file))
+    } finally {
+      setWorking(false)
+    }
   }
 
   return (
@@ -246,7 +267,9 @@ function CropModal({ file, onConfirm, onSkip, onCancel, isLast }) {
 
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel all</button>
-          <button type="button" className="btn btn-secondary" onClick={skipOriginal}>Upload original</button>
+          <button type="button" className="btn btn-secondary" disabled={working} onClick={skipOriginal}>
+            {working ? <><Spinner small /> Compressing…</> : 'Upload without cropping'}
+          </button>
           <button type="button" className="btn btn-primary" disabled={working || !preview || !natural} onClick={confirmCrop}>
             {working ? <><Spinner small /> Processing…</> : (isLast ? 'Confirm & upload' : 'Confirm & next')}
           </button>

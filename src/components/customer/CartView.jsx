@@ -41,6 +41,15 @@ export default function CartView({ token, onCartChanged }) {
   useEffect(() => { loadCart() }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleQty = async (item, nextQty) => {
+    const availableStock = item.variant
+      ? (item.variant.availableStock ?? item.variant.stock ?? Infinity)
+      : (item.product?.stock ?? Infinity)
+
+    if (nextQty > item.quantity && nextQty > availableStock) {
+      toast.error(availableStock > 0 ? `Only ${availableStock} item${availableStock === 1 ? '' : 's'} currently available.` : 'This product is out of stock.')
+      return
+    }
+
     try {
       if (nextQty <= 0) {
         await removeCartItem(token, item._id)
@@ -118,13 +127,26 @@ export default function CartView({ token, onCartChanged }) {
     )
   }
 
+  const hasStockIssue = cart.items.some((item) => {
+    const stock = item.variant
+      ? (item.variant.availableStock ?? item.variant.stock ?? 0)
+      : (item.product?.stock ?? 0)
+    return stock <= 0 || item.quantity > stock
+  })
+
   return (
     <div className="cart-layout">
       <div className="cart-items">
         {cart.items.map((item) => {
           const img = item.productImage || productImageUrl(item.product) || productImageUrl(item.variant)
+          const availableStock = item.variant
+            ? (item.variant.availableStock ?? item.variant.stock ?? Infinity)
+            : (item.product?.stock ?? Infinity)
+          const isOOS = availableStock <= 0
+          const exceeds = item.quantity > availableStock
+
           return (
-            <div className="cart-item" key={item._id}>
+            <div className={`cart-item ${isOOS || exceeds ? 'cart-item-warning' : ''}`} key={item._id}>
               <div className="cart-item-media">
                 {img ? <img src={img} alt={item.productName} /> : <div className="img-ph">📦</div>}
               </div>
@@ -132,11 +154,21 @@ export default function CartView({ token, onCartChanged }) {
                 <h3>{item.productName}</h3>
                 {item.variant?.label && <p className="muted">Variant: {item.variant.label}</p>}
                 <p className="cart-item-price">{formatINR(item.priceAtAdd)} each</p>
+                {isOOS && <span className="cart-stock-alert danger">⚠️ Currently out of stock — please remove to proceed</span>}
+                {!isOOS && exceeds && (
+                  <span className="cart-stock-alert warning">⚠️ Only {availableStock} available — please reduce quantity</span>
+                )}
               </div>
               <div className="qty-stepper">
                 <button type="button" onClick={() => handleQty(item, item.quantity - 1)}>−</button>
                 <span>{item.quantity}</span>
-                <button type="button" onClick={() => handleQty(item, item.quantity + 1)}>+</button>
+                <button
+                  type="button"
+                  onClick={() => handleQty(item, item.quantity + 1)}
+                  disabled={item.quantity >= availableStock}
+                >
+                  +
+                </button>
               </div>
               <div className="cart-item-total">{formatINR(item.priceAtAdd * item.quantity)}</div>
               <button type="button" className="btn btn-sm btn-danger-ghost" onClick={() => handleRemove(item._id)}>
@@ -177,7 +209,18 @@ export default function CartView({ token, onCartChanged }) {
           <div className="summary-total"><span>Total</span><span>{formatINR(total)}</span></div>
         </div>
 
-        <button type="button" className="btn btn-primary btn-block" onClick={() => setCheckoutOpen(true)}>
+        {hasStockIssue && (
+          <p className="cart-stock-summary-warning">
+            ⚠️ Please adjust or remove out-of-stock items before checkout.
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="btn btn-primary btn-block"
+          disabled={hasStockIssue}
+          onClick={() => setCheckoutOpen(true)}
+        >
           Proceed to checkout
         </button>
         <p className="muted small">Checkout places your order with the seller. No payment gateway is connected yet.</p>

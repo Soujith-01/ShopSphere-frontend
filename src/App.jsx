@@ -8,7 +8,9 @@ import SellerDashboard from './components/seller/SellerDashboard.jsx'
 import AdminDashboard from './components/admin/AdminDashboard.jsx'
 import SupportDashboard from './components/support/SupportDashboard.jsx'
 import DeliveryDashboard from './components/delivery/DeliveryDashboard.jsx'
+import Landing from './components/Landing.jsx'
 import './App.css'
+import './landing.css'
 
 // Seconds the session-expired screen waits before auto-redirecting to login.
 const REDIRECT_SECONDS = 10
@@ -204,26 +206,7 @@ export default function App() {
   if (root === '/') {
     return (
       <div className="app">
-        <main className="landing">
-          <div className="brand">🛍️ ShopSphere</div>
-          <h1>
-            Shop everything.
-            <br />
-            From every seller.
-          </h1>
-          <p className="tagline">
-            A multi-vendor marketplace where customers shop, sellers sell, and
-            admins keep it all running.
-          </p>
-          <div className="actions">
-            <button className="btn btn-primary" onClick={() => navigate('/login')}>
-              Log in
-            </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/register')}>
-              Create account
-            </button>
-          </div>
-        </main>
+        <Landing />
       </div>
     )
   }

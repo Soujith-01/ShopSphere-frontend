@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   sellerGetOrders, sellerGetOrder, sellerUpdateOrderStatus, sellerCancelOrder,
+  sellerGetSheets,
 } from '../../api.js'
 import { useToast } from '../../toast.js'
 import {
@@ -8,6 +9,7 @@ import {
   ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, orderStatusFlavor, payStatusFlavor, payStatusLabel,
 } from '../../format.js'
 import Loading from '../Loading.jsx'
+import Spinner from '../Spinner.jsx'
 
 const STATUS_FILTERS = ['', 'placed', 'confirmed', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled']
 
@@ -79,14 +81,18 @@ export default function SellerOrdersView({ token }) {
 
   return (
     <div>
-      <div className="filters-status">
-        {STATUS_FILTERS.map((s) => (
-          <button key={s || 'all'} type="button"
-            className={`chip-btn ${status === s ? 'active' : ''}`}
-            onClick={() => { setStatus(s); setPage(1) }}>
-            {s ? ORDER_STATUS_LABELS[s] : 'All'}
-          </button>
-        ))}
+      <div className="orders-head">
+        <div className="filters-status">
+          {STATUS_FILTERS.map((s) => (
+            <button key={s || 'all'} type="button"
+              className={`chip-btn ${status === s ? 'active' : ''}`}
+              onClick={() => { setStatus(s); setPage(1) }}>
+              {s ? ORDER_STATUS_LABELS[s] : 'All'}
+            </button>
+          ))}
+        </div>
+
+        <OrdersSheetButton token={token} />
       </div>
 
       {loading && <Loading label="Loading orders…" />}
@@ -176,6 +182,59 @@ const advanceLabel = (status) => {
     placed: 'Confirm', confirmed: 'Mark packed', packed: 'Mark shipped',
   }
   return map[status] || ''
+}
+
+// Opens the seller's ORDERS tab in Google Sheets. The link targets the tab by its
+// id, so it never lands on the Products tab. A store owns one spreadsheet with
+// Products / Orders / Inventory tabs — this is the orders one.
+function OrdersSheetButton({ token }) {
+  const toast = useToast()
+  const [ordersUrl, setOrdersUrl] = useState('')
+  const [state, setState] = useState('loading') // loading | ready | missing
+
+  useEffect(() => {
+    let cancelled = false
+
+    sellerGetSheets(token)
+      .then((res) => {
+        if (cancelled) return
+        setOrdersUrl(res.data?.ordersUrl || '')
+        setState(res.data?.ordersUrl ? 'ready' : 'missing')
+      })
+      .catch((err) => {
+        if (cancelled || err.status === 401) return
+        setState('missing')
+      })
+
+    return () => { cancelled = true }
+  }, [token])
+
+  if (state === 'loading') {
+    return (
+      <button type="button" className="btn btn-sm btn-secondary" disabled
+        title="Looking for your Google Sheet">
+        <Spinner small /> Orders sheet…
+      </button>
+    )
+  }
+
+  if (state === 'ready') {
+    return (
+      <a className="btn btn-sm btn-secondary" href={ordersUrl} target="_blank" rel="noopener noreferrer"
+        title="Open the Orders tab of your Google Sheet">
+        📄 Open Orders Sheet ↗
+      </a>
+    )
+  }
+
+  // No spreadsheet yet (the store page creates it), or its Orders tab has not
+  // been created yet — that happens with the first order written to the sheet.
+  return (
+    <button type="button" className="btn btn-sm btn-secondary"
+      onClick={() => toast.error('Your Orders sheet is not ready yet — your Google Sheet is created with your store, and its Orders tab is added with your first order.')}>
+      📄 Open Orders Sheet
+    </button>
+  )
 }
 
 function OrderDetailModal({ token, orderId, onClose, onAdvance, onCancel }) {

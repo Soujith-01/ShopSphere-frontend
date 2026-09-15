@@ -3,7 +3,7 @@ import {
   getProductBySlug, addToCart, getProductReviews, createReview, getOrders,
   getMyReview, updateReview, getProductQA,
 } from '../../api.js'
-import { formatINR, productImageUrl, formatDate } from '../../format.js'
+import { formatINR, productImageUrl, formatDate, getDiscountLabel } from '../../format.js'
 import { useToast } from '../../toast.js'
 import Loading from '../Loading.jsx'
 import Spinner from '../Spinner.jsx'
@@ -105,13 +105,18 @@ export default function ProductModal({ product, token, user, onClose, onCartChan
   }
 
   const image = productImageUrl(detail)
+  const discountLabel = getDiscountLabel(detail.discount || product?.discount)
   const variants = detail.variants || []
   const selectedVariant = variants.find((v) => v._id === variantId)
   const unitPrice = selectedVariant?.price ?? detail.price
-  const available = selectedVariant ? selectedVariant.availableStock : (variantId === null && !detail.hasVariants)
+  const availableStock = selectedVariant ? (selectedVariant.availableStock ?? selectedVariant.stock ?? 0) : (detail.stock ?? 0)
+  const isOutOfStock = detail.hasVariants
+    ? Boolean(variants.length && variants.every((v) => (v.stock ?? 0) <= 0))
+    : (detail.stock ?? 0) <= 0
+  const canAdd = !isOutOfStock && availableStock > 0 && (!detail.hasVariants || variantId)
 
   const handleAdd = async () => {
-    if (!available || (detail.hasVariants && !variantId)) return
+    if (!canAdd) return
     setBusy(true)
     try {
       await addToCart(token, {
@@ -162,6 +167,16 @@ export default function ProductModal({ product, token, user, onClose, onCartChan
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         <div className="modal-grid">
           <div className="modal-media">
+            {discountLabel && (
+              <span className="product-discount-badge modal-discount-badge" aria-label={`Discount: ${discountLabel}`}>
+                {discountLabel}
+              </span>
+            )}
+            {isOutOfStock && (
+              <div className="product-out-of-stock-overlay modal-out-of-stock-overlay" aria-label="Out of stock">
+                <span className="out-of-stock-badge">OUT OF STOCK</span>
+              </div>
+            )}
             {image ? <img src={image} alt={detail.name} /> : <div className="img-ph img-ph-lg">📦</div>}
           </div>
 
@@ -175,6 +190,16 @@ export default function ProductModal({ product, token, user, onClose, onCartChan
                 <span className="product-rating">
                   ★ {detail.reviewSummary.avgRating} ({detail.reviewSummary.totalReviews} reviews)
                 </span>
+              )}
+            </div>
+
+            <div className="stock-status-row">
+              {isOutOfStock ? (
+                <span className="stock-status-pill out-of-stock">⛔ Out of Stock</span>
+              ) : availableStock <= 5 ? (
+                <span className="stock-status-pill low-stock">⚠️ Only {availableStock} left in stock - order soon</span>
+              ) : (
+                <span className="stock-status-pill in-stock">✓ In Stock ({availableStock} available)</span>
               )}
             </div>
 
@@ -192,28 +217,31 @@ export default function ProductModal({ product, token, user, onClose, onCartChan
                     >
                       {v.label}
                       <span className="variant-price">{formatINR(v.price)}</span>
+                      {v.availableStock <= 0 && <span className="variant-sold-out">Sold out</span>}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="qty-row">
-              <span>Quantity</span>
-              <div className="qty-stepper">
-                <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>−</button>
-                <span>{quantity}</span>
-                <button type="button" onClick={() => setQuantity((q) => q + 1)}>+</button>
+            {!isOutOfStock && (
+              <div className="qty-row">
+                <span>Quantity</span>
+                <div className="qty-stepper">
+                  <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1}>−</button>
+                  <span>{quantity}</span>
+                  <button type="button" onClick={() => setQuantity((q) => Math.min(availableStock, q + 1))} disabled={quantity >= availableStock}>+</button>
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               type="button"
-              className="btn btn-primary btn-block"
-              disabled={busy || !available || (detail.hasVariants && !variantId)}
+              className={`btn btn-block ${isOutOfStock ? 'btn-disabled' : 'btn-primary'}`}
+              disabled={busy || !canAdd}
               onClick={handleAdd}
             >
-              {busy ? <><Spinner small /> Adding…</> : detail.hasVariants && !variantId ? 'Select a variant' : 'Add to cart'}
+              {busy ? <><Spinner small /> Adding…</> : isOutOfStock ? 'Out of Stock' : detail.hasVariants && !variantId ? 'Select a variant' : 'Add to cart'}
             </button>
 
             <button type="button" className="btn btn-secondary btn-block" onClick={() => setChatOpen(true)}>

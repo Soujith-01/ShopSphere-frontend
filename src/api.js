@@ -4,8 +4,9 @@
 // (e.g. in Frontend/.env:  VITE_API_BASE_URL=http://localhost:3000/api).
 // CORS on the backend already allows http://localhost:5173.
 
+const envUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+  envUrl.includes(':4000') ? 'http://localhost:3000/api' : envUrl
 ).replace(/\/+$/, '')
 
 function buildQuery(params = {}) {
@@ -57,9 +58,36 @@ async function request(path, { method = 'GET', body, token } = {}) {
 //   register → { name, email, password, role, businessName?, businessType? }
 //   login    → { email, password }
 export const register = (payload) => request('/auth/register', { method: 'POST', body: payload })
+
+// Delivery-agent registration: multipart/form-data with a licensePhoto file.
+export const registerDelivery = (formData) =>
+  requestFormData('/auth/register', formData)
 export const login = (payload) => request('/auth/login', { method: 'POST', body: payload })
 export const logout = (token) => request('/auth/logout', { method: 'POST', token })
 export const getMe = (token) => request('/auth/me', { token })
+
+// Multipart request helper — used by delivery-agent registration which must
+// upload the driving-license photo alongside the form fields.
+async function requestFormData(path, formData, { token } = {}) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    /* non-JSON response */
+  }
+  if (!res.ok) {
+    const err = new Error(data?.message || `Request failed (${res.status})`)
+    err.status = res.status
+    err.data = data
+    throw err
+  }
+  return data
+}
 
 // ─── Auth session helpers ───────────────────────────────────────────────────
 export const saveSession = (user, accessToken) => {
@@ -161,16 +189,29 @@ export const sellerCreateStore = (token, body) =>
   request('/seller/store', { method: 'POST', body, token })
 export const sellerUpdateStore = (token, body) =>
   request('/seller/store', { method: 'PUT', body, token })
+// Re-share the store's Google Sheet with the seller's current email
+// (used after the account email changes).
+export const sellerReshareSheet = (token) =>
+  request('/seller/store/sheet/reshare', { method: 'POST', token })
+// The store's Google Sheet: its tabs (with gids) and ready-made deep links.
+// `ordersUrl` opens the Orders tab — not the Products tab.
+export const sellerGetSheets = (token) => request('/seller/sheets', { token })
 
 // ─── Seller: products & variants (protected) ────────────────────────
 export const sellerGetProducts = (token, params = {}) =>
   request(`/seller/products${buildQuery(params)}`, { token })
+// Pull this seller's Google Sheet into the app: creates new rows and applies
+// edits (price, stock, …) to products that already exist.
+export const sellerSyncFromSheet = (token) =>
+  request('/seller/products/import-from-sheet', { method: 'POST', token })
 export const sellerGetProduct = (token, id) =>
   request(`/seller/products/${id}`, { token })
 export const sellerCreateProduct = (token, body) =>
   request('/seller/products', { method: 'POST', body, token })
 export const sellerUpdateProduct = (token, id, body) =>
   request(`/seller/products/${id}`, { method: 'PUT', body, token })
+export const sellerUpdateProductStock = (token, id, stock) =>
+  request(`/seller/products/${id}/stock`, { method: 'PUT', body: { stock }, token })
 export const sellerDeleteProduct = (token, id) =>
   request(`/seller/products/${id}`, { method: 'DELETE', token })
 export const sellerSubmitProduct = (token, id) =>
@@ -246,10 +287,6 @@ export const getReturn = (token, returnId) =>
 export const createReturn = (token, body) =>
   request('/customer/returns', { method: 'POST', body, token })
 
-// ─── AI: natural language search (protected) ──────────────────────
-export const naturalSearch = (token, body) =>
-  request('/ai/natural-search', { method: 'POST', body, token })
-
 // ─── Customer: product conversations (protected) ────────────────────
 export const customerGetConversations = (token) =>
   request('/customer/messages', { token })
@@ -269,10 +306,42 @@ export const sellerSendMessage = (token, id, text) =>
   request(`/seller/messages/${id}`, { method: 'POST', body: { text }, token })
 
 // ─── Seller: image upload (multipart → Cloudinary) ───────────────────
+// Sellers never type image URLs: the file goes to the API, the backend uploads
+// it to Cloudinary and returns { url, publicId } for the product's image list.
 export const sellerUploadImage = async (token, file) => {
   const formData = new FormData()
   formData.append('image', file)
-  const res = await fetch(`${API_BASE_URL}/seller/uploads`, {
+  const res = await fetch(`${API_BASE_URL}/seller/products/upload-image`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    /* non-JSON response */
+  }
+  if (!res.ok) {
+    const err = new Error(data?.message || `Upload failed (${res.status})`)
+    err.status = res.status
+    err.data = data
+    throw err
+  }
+  return data
+}
+
+// Delete photos that were uploaded but never attached to a product (the seller
+// abandoned the form, or product creation failed). Best-effort cleanup.
+export const sellerDiscardImages = (token, publicIds) =>
+  request('/seller/products/discard-images', { method: 'POST', body: { publicIds }, token })
+
+export const sellerUploadMultipleImages = async (token, files) => {
+  const formData = new FormData()
+  for (const f of files) {
+    formData.append('images', f)
+  }
+  const res = await fetch(`${API_BASE_URL}/seller/uploads/multiple`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
@@ -301,6 +370,16 @@ export const sellerMarkAllNotificationsRead = (token) =>
   request('/seller/notifications/read-all', { method: 'PUT', token })
 export const sellerDeleteNotification = (token, notificationId) =>
   request(`/seller/notifications/${notificationId}`, { method: 'DELETE', token })
+
+// ─── Customer: support tickets (protected) ──────────────────────
+export const createTicket = (token, body) =>
+  request('/customer/support/tickets', { method: 'POST', body, token })
+export const getMyTickets = (token, params = {}) =>
+  request(`/customer/support/tickets${buildQuery(params)}`, { token })
+export const getMyTicket = (token, ticketId) =>
+  request(`/customer/support/tickets/${ticketId}`, { token })
+export const replyToTicket = (token, ticketId, message) =>
+  request(`/customer/support/tickets/${ticketId}/messages`, { method: 'POST', body: { message }, token })
 
 // ─── Support agent: tickets (protected) ─────────────────────────────
 export const supportGetStats = (token) => request('/support/stats', { token })
@@ -363,6 +442,22 @@ export const adminDeactivateSeller = (token, sellerId) =>
 export const adminActivateSeller = (token, sellerId) =>
   request(`/admin/sellers/${sellerId}/activate`, { method: 'PUT', token })
 
+// ─── Admin: delivery agents (protected) ────────────────────────
+export const adminGetDeliveryAgents = (token, params = {}) =>
+  request(`/admin/delivery${buildQuery(params)}`, { token })
+export const adminGetDeliveryAgent = (token, userId) =>
+  request(`/admin/delivery/${userId}`, { token })
+export const adminVerifyDeliveryAgent = (token, userId) =>
+  request(`/admin/delivery/${userId}/verify`, { method: 'PUT', token })
+export const adminRejectDeliveryAgent = (token, userId, reason) =>
+  request(`/admin/delivery/${userId}/reject`, { method: 'PUT', body: { reason }, token })
+export const adminDeactivateDeliveryAgent = (token, userId) =>
+  request(`/admin/delivery/${userId}/deactivate`, { method: 'PUT', token })
+export const adminActivateDeliveryAgent = (token, userId) =>
+  request(`/admin/delivery/${userId}/activate`, { method: 'PUT', token })
+export const adminDeleteDeliveryAgent = (token, userId) =>
+  request(`/admin/delivery/${userId}`, { method: 'DELETE', token })
+
 // ─── Admin: products (protected) ─────────────────────────────────────
 export const adminGetProducts = (token, params = {}) =>
   request(`/admin/products${buildQuery(params)}`, { token })
@@ -413,18 +508,39 @@ export const adminGetOrders = (token, params = {}) =>
   request(`/admin/orders${buildQuery(params)}`, { token })
 export const adminGetOrder = (token, orderId) => request(`/admin/orders/${orderId}`, { token })
 
+// ─── Admin: returns (protected) ───────────────────────────────────────
+export const adminGetReturnStats = (token) => request('/admin/returns/stats', { token })
+export const adminGetReturns = (token, params = {}) =>
+  request(`/admin/returns${buildQuery(params)}`, { token })
+export const adminGetReturn = (token, returnId) => request(`/admin/returns/${returnId}`, { token })
+
 // ─── Delivery partner (protected) ────────────────────────────────────
 export const deliveryGetStats = (token) => request('/delivery/stats', { token })
 export const deliveryGetAvailable = (token, params = {}) =>
   request(`/delivery/orders/available${buildQuery(params)}`, { token })
 export const deliveryGetActive = (token) => request('/delivery/orders/active', { token })
+export const deliveryGetAssigned = (token) => request('/delivery/orders/assigned', { token })
 export const deliveryGetHistory = (token, params = {}) =>
   request(`/delivery/orders/history${buildQuery(params)}`, { token })
 export const deliveryAcceptOrder = (token, orderId) =>
   request(`/delivery/orders/${orderId}/accept`, { method: 'PUT', token })
+export const deliveryStartOrder = (token, orderId) =>
+  request(`/delivery/orders/${orderId}/start`, { method: 'PUT', token })
 export const deliveryDeliverOrder = (token, orderId, note = '') =>
   request(`/delivery/orders/${orderId}/deliver`, { method: 'PUT', body: { note }, token })
 export const deliveryUpdateProfile = (token, body) =>
   request('/delivery/profile', { method: 'PUT', body, token })
 export const deliveryUpdateLocation = (token, coordinates) =>
   request('/delivery/location', { method: 'PUT', body: { coordinates }, token })
+
+// ─── Delivery partner: returns (protected) ───────────────────────────
+export const deliveryGetActiveReturns = (token) => request('/delivery/returns/active', { token })
+export const deliveryGetAvailableReturns = (token, params = {}) =>
+  request(`/delivery/returns/available${buildQuery(params)}`, { token })
+export const deliveryAcceptReturn = (token, returnId) =>
+  request(`/delivery/returns/${returnId}/accept`, { method: 'PUT', token })
+export const deliveryPickupReturn = (token, returnId, body = {}) =>
+  request(`/delivery/returns/${returnId}/pickup`, { method: 'PUT', body, token })
+export const deliveryReturnToStore = (token, returnId, body = {}) =>
+  request(`/delivery/returns/${returnId}/return-to-store`, { method: 'PUT', body, token })
+

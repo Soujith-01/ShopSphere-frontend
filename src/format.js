@@ -63,6 +63,20 @@ export const productImageUrl = (product) => {
   return img?.url || ''
 }
 
+// Formats product discount (percentage or flat off) for badges on product images
+export const getDiscountLabel = (discount) => {
+  if (!discount || !discount.value || Number(discount.value) <= 0) return null
+  if (discount.validTo && new Date(discount.validTo) < new Date()) return null
+  const type = String(discount.type || '').toLowerCase().trim()
+  if (type === 'percentage') {
+    return `${discount.value}% OFF`
+  }
+  if (type === 'flat') {
+    return `Flat ₹${Number(discount.value).toLocaleString('en-IN')} OFF`
+  }
+  return null
+}
+
 // ─── Seller-side labels ─────────────────────────────────────────────
 export const PRODUCT_STATUS_LABELS = {
   draft: 'Draft',
@@ -82,6 +96,9 @@ export const productStatusFlavor = (status) => {
 export const RETURN_STATUS_LABELS = {
   pending: 'Pending',
   approved: 'Approved',
+  picked_up: 'Picked up from customer',
+  returned_to_store: 'Returned to store',
+  received: 'Received',
   rejected: 'Rejected',
   return_shipped: 'Shipped back',
   return_received: 'Received',
@@ -89,9 +106,9 @@ export const RETURN_STATUS_LABELS = {
 }
 
 export const returnStatusFlavor = (status) => {
-  if (status === 'approved' || status === 'return_received' || status === 'refunded') return 'success'
+  if (status === 'approved' || status === 'received' || status === 'return_received' || status === 'refunded') return 'success'
   if (status === 'rejected') return 'danger'
-  if (status === 'pending') return 'status'
+  if (status === 'pending' || status === 'picked_up' || status === 'returned_to_store' || status === 'return_shipped') return 'status'
   return 'muted'
 }
 
