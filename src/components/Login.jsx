@@ -10,7 +10,7 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react'
-import { login, saveSession, requestActivation } from '../api.js'
+import { login, saveSession, requestActivation, API_BASE_URL } from '../api.js'
 import { navigate } from '../router.js'
 import { useToast } from '../toast.js'
 import Spinner from './Spinner.jsx'
@@ -101,7 +101,7 @@ export default function Login({ onSwitchToRegister, onAuthed, onBack }) {
 
   const handleGoogleLogin = () => {
     toast.info('Connecting to Google OAuth authentication...')
-    window.location.href = 'http://localhost:3000/api/auth/google'
+    window.location.href = `${API_BASE_URL}/auth/google`
   }
 
   return (

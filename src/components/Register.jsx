@@ -16,7 +16,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react'
-import { register, registerDelivery, saveSession } from '../api.js'
+import { register, registerDelivery, saveSession, API_BASE_URL } from '../api.js'
 import { navigate } from '../router.js'
 import { useToast } from '../toast.js'
 import Spinner from './Spinner.jsx'
@@ -163,7 +163,7 @@ export default function Register({ onSwitchToLogin, onAuthed, onBack }) {
 
   const handleGoogleSignup = () => {
     toast.info('Connecting to Google OAuth registration...')
-    window.location.href = 'http://localhost:3000/api/auth/google'
+    window.location.href = `${API_BASE_URL}/auth/google`
   }
 
   return (

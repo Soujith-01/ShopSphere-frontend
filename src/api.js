@@ -4,9 +4,9 @@
 // (e.g. in Frontend/.env:  VITE_API_BASE_URL=http://localhost:3000/api).
 // CORS on the backend already allows http://localhost:5173.
 
-const envUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const envUrl = import.meta.env.VITE_API_BASE_URL || 'https://shopsphere-backend-ilr1.onrender.com/api'
 export const API_BASE_URL = (
-  envUrl.includes(':4000') ? 'http://localhost:3000/api' : envUrl
+  envUrl.includes(':4000') ? 'https://shopsphere-backend-ilr1.onrender.com/api' : envUrl
 ).replace(/\/+$/, '')
 
 function buildQuery(params = {}) {
