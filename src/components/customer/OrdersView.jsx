@@ -75,7 +75,7 @@ export default function OrdersView({ token }) {
           <div className="order-card-head">
             <div>
               <strong>{order.orderNumber}</strong>
-              <p className="muted small">{formatDate(order.createdAt)} · {order.storeName || order.store?.name || order.seller?.businessName || 'ShopSphere seller'}</p>
+              <p className="muted small">{formatDate(order.createdAt)} · {order.storeName || order.store?.name || order.seller?.businessName || 'Eazy seller'}</p>
               {['out_for_delivery', 'delivered'].includes(order.status) && order.deliveryPartner && (
                 <p className="muted small">🚚 Delivery: {order.deliveryPartner.name} · {order.deliveryPartner.phone}{order.deliveryPartner.deliveryPartner?.vehicleType ? ` · ${order.deliveryPartner.deliveryPartner.vehicleType}` : ''}</p>
               )}

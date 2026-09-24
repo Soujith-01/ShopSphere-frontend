@@ -166,7 +166,7 @@ export default function App() {
     return (
       <div className="app">
         <main className="role-gate">
-          <div className="brand">🛍️ ShopSphere</div>
+          <div className="brand">🛍️ Eazy</div>
           <div className="card">
             <div className="card-emoji">🔐</div>
             <h2>You're signed in as {role}</h2>

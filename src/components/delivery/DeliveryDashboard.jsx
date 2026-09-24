@@ -99,7 +99,7 @@ export default function DeliveryDashboard({ session, onLogout }) {
       <aside className="sidebar">
         <div className="brand sidebar-brand">
           <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
-          <span>ShopSphere</span>
+          <span>Eazy</span>
         </div>
         <nav className="sidebar-nav">
           {NAV.map((item) => {

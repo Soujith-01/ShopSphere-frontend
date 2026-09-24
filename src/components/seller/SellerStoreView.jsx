@@ -178,7 +178,7 @@ function StoreSummary({ store, onEdit }) {
             <div>
               <h2 className="store-name">{store.name}</h2>
               {store.tagline && <p className="muted small" style={{ margin: 0 }}>{store.tagline}</p>}
-              <p className="muted small" style={{ margin: '2px 0 0' }}>shopsphere/store/{store.slug}</p>
+              <p className="muted small" style={{ margin: '2px 0 0' }}>eazy/store/{store.slug}</p>
             </div>
           </div>
           <button type="button" className="btn btn-primary" onClick={onEdit}>Edit store</button>

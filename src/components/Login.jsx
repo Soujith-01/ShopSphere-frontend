@@ -68,7 +68,7 @@ export default function Login({ onSwitchToRegister, onAuthed, onBack }) {
       setSubmitting(true)
       const res = await login({ email: email.trim(), password })
       saveSession(res.data.user, res.data.accessToken)
-      toast.success('✨ Welcome back to ShopSphere!')
+      toast.success('✨ Welcome back to Eazy!')
       onAuthed?.({ token: res.data.accessToken, user: res.data.user })
     } catch (err) {
       if (err.status === 403 && err.message?.includes('pending admin approval')) {
@@ -118,7 +118,7 @@ export default function Login({ onSwitchToRegister, onAuthed, onBack }) {
               <button type="button" className="glass-back-btn" onClick={handleBack}>
                 <ArrowLeft size={15} /> Back to Store
               </button>
-              <span className="glass-mobile-brand">ShopSphere</span>
+              <span className="glass-mobile-brand">Eazy</span>
             </div>
 
             {/* Status Case 1: Account Deactivated */}
@@ -328,7 +328,7 @@ export default function Login({ onSwitchToRegister, onAuthed, onBack }) {
                 </form>
 
                 <p className="glass-form-footer">
-                  New to ShopSphere?{' '}
+                  New to Eazy?{' '}
                   <button
                     type="button"
                     className="glass-link-btn"

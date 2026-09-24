@@ -27,7 +27,7 @@ export default function AuthPromoSide({ mode = 'login' }) {
             <ShoppingBag size={24} strokeWidth={2.3} className="glass-brand-svg" />
           </div>
           <div className="glass-brand-text">
-            <span className="glass-brand-title">ShopSphere</span>
+            <span className="glass-brand-title">Eazy</span>
             <span className="glass-brand-tagline">Multi-Vendor Marketplace</span>
           </div>
         </div>
@@ -52,7 +52,7 @@ export default function AuthPromoSide({ mode = 'login' }) {
           <div className="glass-showcase-img-wrap">
             <img
               src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1000&q=85"
-              alt="ShopSphere Premium Collection"
+              alt="Eazy Premium Collection"
               className="glass-showcase-img"
               loading="lazy"
             />
@@ -144,7 +144,7 @@ export default function AuthPromoSide({ mode = 'login' }) {
           </div>
           <div className="glass-footer-stat">
             <strong>Join 50,000+ members</strong>
-            <span>shopping with confidence on ShopSphere</span>
+            <span>shopping with confidence on Eazy</span>
           </div>
         </div>
       </div>

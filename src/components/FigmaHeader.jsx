@@ -230,7 +230,7 @@ export default function FigmaHeader({
           <div className="figma-container figma-navbar-inner">
             {/* Logo */}
             <button className="figma-logo" onClick={() => navigate('/')}>
-              <span>ECOMMERCE</span>
+              <span>EAZY</span>
             </button>
 
             {/* Search Bar */}

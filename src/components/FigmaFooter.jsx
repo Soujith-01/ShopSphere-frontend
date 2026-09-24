@@ -36,7 +36,7 @@ export default function FigmaFooter({ onOpenModal }) {
         <div className="figma-footer-main-grid">
           <div className="figma-footer-brand-col">
             <h2 className="figma-footer-logo" onClick={() => navigate('/')}>
-              ECOMMERCE
+              EAZY
             </h2>
             <p className="figma-footer-desc">
               {t('footerAbout')}
@@ -96,7 +96,7 @@ export default function FigmaFooter({ onOpenModal }) {
         {/* Bottom Bar */}
         <div className="figma-footer-bottom">
           <p className="figma-copyright">
-            © {new Date().getFullYear()} ShopSphere · E-commerce UI. {t('rights')}
+            © {new Date().getFullYear()} Eazy · E-commerce UI. {t('rights')}
           </p>
           <div className="figma-footer-bottom-links">
             <button type="button" onClick={() => triggerModal('faq')} className="figma-footer-text-btn">Privacy Policy</button>

@@ -44,7 +44,7 @@ export function TrackingModal({ isOpen, onClose, session }) {
     // Generate realistic dynamic tracking data for any tracking query
     setTrackingResult({
       orderId: trackCode.trim().toUpperCase(),
-      courier: 'ShopSphere Express Courier (Bluedart/FedEx)',
+      courier: 'Eazy Express Courier (Bluedart/FedEx)',
       eta: 'Tomorrow by 4:00 PM',
       currentLocation: 'Regional Sorting Hub — In Transit',
       steps: [
@@ -167,7 +167,7 @@ export function FaqModal({ isOpen, onClose }) {
     {
       category: 'shipping',
       q: 'Do you offer international shipping?',
-      a: 'Yes! ShopSphere ships to over 50+ countries worldwide with tracked DHL & FedEx international courier services.',
+      a: 'Yes! Eazy ships to over 50+ countries worldwide with tracked DHL & FedEx international courier services.',
     },
     {
       category: 'returns',
@@ -177,7 +177,7 @@ export function FaqModal({ isOpen, onClose }) {
     {
       category: 'returns',
       q: 'How do refunds get credited?',
-      a: 'Refunds are automatically issued back to your original payment method (Credit/Debit Card, UPI, Net Banking, or ShopSphere Store Wallet).',
+      a: 'Refunds are automatically issued back to your original payment method (Credit/Debit Card, UPI, Net Banking, or Eazy Store Wallet).',
     },
     {
       category: 'payments',
@@ -191,7 +191,7 @@ export function FaqModal({ isOpen, onClose }) {
     },
     {
       category: 'seller',
-      q: 'How can I sell products on ShopSphere?',
+      q: 'How can I sell products on Eazy?',
       a: 'You can register as a seller by clicking "Create account" and selecting the Seller role. You will get access to Google Sheets automated catalog sync, analytics, and instant payouts.',
     },
   ]
@@ -288,7 +288,7 @@ export function AboutModal({ isOpen, onClose }) {
           <div className="figma-modal-icon-badge">
             <Sparkles size={24} />
           </div>
-          <h2 className="figma-modal-title">About ShopSphere</h2>
+          <h2 className="figma-modal-title">About Eazy</h2>
           <p className="figma-modal-desc">{t('footerAbout')}</p>
         </div>
 
@@ -445,7 +445,7 @@ export function ContactModal({ isOpen, onClose }) {
         <div className="figma-contact-info-strip">
           <div className="figma-info-item">
             <Mail size={16} />
-            <span>support@shopsphere.com</span>
+            <span>support@eazy.com</span>
           </div>
           <div className="figma-info-item">
             <Phone size={16} />

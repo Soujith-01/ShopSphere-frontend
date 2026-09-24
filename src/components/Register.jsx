@@ -152,7 +152,7 @@ export default function Register({ onSwitchToLogin, onAuthed, onBack }) {
       }
 
       saveSession(res.data.user, res.data.accessToken)
-      toast.success('✨ Account created successfully! Welcome to ShopSphere.')
+      toast.success('✨ Account created successfully! Welcome to Eazy.')
       onAuthed?.({ token: res.data.accessToken, user: res.data.user })
     } catch (err) {
       toast.error(err.message || 'Registration failed. Please try again.')
@@ -180,7 +180,7 @@ export default function Register({ onSwitchToLogin, onAuthed, onBack }) {
               <button type="button" className="glass-back-btn" onClick={handleBack}>
                 <ArrowLeft size={15} /> Back to Store
               </button>
-              <span className="glass-mobile-brand">ShopSphere</span>
+              <span className="glass-mobile-brand">Eazy</span>
             </div>
 
             {/* Status Case: Application Awaiting Admin Review */}
@@ -232,7 +232,7 @@ export default function Register({ onSwitchToLogin, onAuthed, onBack }) {
                 <div className="glass-form-header">
                   <h2 className="glass-form-title">Create an account</h2>
                   <p className="glass-form-subtitle">
-                    Join ShopSphere to discover exclusive products, sell items, or partner with us.
+                    Join Eazy to discover exclusive products, sell items, or partner with us.
                   </p>
                 </div>
 
