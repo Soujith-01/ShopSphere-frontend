@@ -15,14 +15,19 @@ export const NAV_REFRESH_EVENT = 'shopsphere:nav-refresh'
 // Push a new URL onto the history stack and re-render listeners.
 // Navigating to the CURRENT path doesn't change the route; instead it fires
 // NAV_REFRESH_EVENT and scrolls to the top, so the page reloads from scratch.
-export function navigate(path) {
-  if (window.location.pathname === path) {
+export function navigate(path, { replace = false } = {}) {
+  const currentFull = window.location.pathname + window.location.search
+  if (currentFull === path || window.location.pathname === path) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     window.dispatchEvent(new Event(NAV_REFRESH_EVENT))
     return
   }
-  window.history.pushState({}, '', path)
-  // pushState does not fire popstate, so notify listeners manually.
+  if (replace) {
+    window.history.replaceState({}, '', path)
+  } else {
+    window.history.pushState({}, '', path)
+  }
+  // pushState/replaceState does not fire popstate, so notify listeners manually.
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 

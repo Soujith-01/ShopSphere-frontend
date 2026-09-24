@@ -59,8 +59,17 @@ export const payStatusFlavor = (status) => {
 }
 
 export const productImageUrl = (product) => {
-  const img = product?.images?.find?.((i) => i?.url) || product?.images?.[0]
-  return img?.url || ''
+  if (!product) return ''
+  if (typeof product === 'string') return product
+  if (product?.image?.url && typeof product.image.url === 'string') return product.image.url
+  if (typeof product?.image === 'string' && product.image.trim()) return product.image
+  if (Array.isArray(product?.images) && product.images.length > 0) {
+    for (const item of product.images) {
+      if (typeof item === 'string' && item.trim()) return item.trim()
+      if (item?.url && typeof item.url === 'string' && item.url.trim()) return item.url.trim()
+    }
+  }
+  return ''
 }
 
 // Formats product discount (percentage or flat off) for badges on product images

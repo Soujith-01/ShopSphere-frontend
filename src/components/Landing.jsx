@@ -1,241 +1,527 @@
 import { useEffect, useState } from 'react'
+import {
+  ArrowUpRight,
+  Heart,
+  Phone,
+  RotateCcw,
+  Sparkles,
+  ShoppingBag,
+} from 'lucide-react'
+import { getProducts, getCategories, getCart, addToCart, getWishlist, toggleWishlist, getSession } from '../api.js'
 import { navigate } from '../router.js'
-
-const FEATURES = [
-  {
-    icon: '🤖',
-    title: 'AI-powered discovery',
-    desc: 'Semantic search understands what you mean, not just what you type. Smart recommendations and AI-written product descriptions surface the right item faster.',
-  },
-  {
-    icon: '🏪',
-    title: 'Multi-vendor marketplace',
-    desc: 'One cart, many stores. Orders are split per seller automatically, each shop manages its own catalog, variants and stock in a dedicated dashboard.',
-  },
-  {
-    icon: '💬',
-    title: 'Real-time chat & Q&A',
-    desc: 'Message sellers over Socket.io the moment you have a question, and ask public product Q&A that helps every future shopper.',
-  },
-  {
-    icon: '🔒',
-    title: 'Secure payments & wallet',
-    desc: 'UPI, card and net-banking with server-side amount verification, plus a seller wallet ledger that tracks every credit, debit and withdrawal.',
-  },
-  {
-    icon: '🔄',
-    title: 'Returns & refunds done right',
-    desc: 'Request a return on delivered orders, seller approves, customer ships, refund flows straight through the wallet — every step tracked and notified.',
-  },
-  {
-    icon: '🚚',
-    title: 'Live delivery tracking',
-    desc: 'Delivery partners accept nearby orders, update status in real time, and customers watch their package move from packed to out for delivery.',
-  },
-]
-
-const ROLES = [
-  {
-    icon: '🛍️',
-    title: 'For shoppers',
-    points: ['AI semantic search', 'Wishlist & reviews', 'Coupons & order tracking', 'Easy returns'],
-    accent: '#6c3ef2',
-  },
-  {
-    icon: '🏬',
-    title: 'For sellers',
-    points: ['Store & catalog tools', 'Order state machine', 'Earnings wallet', 'Sales analytics'],
-    accent: '#0ea5e9',
-  },
-  {
-    icon: '🚀',
-    title: 'For delivery partners',
-    points: ['Nearby order feed', 'One-tap accept', 'Delivery history', 'Availability toggle'],
-    accent: '#16a34a',
-  },
-]
-
-const STEPS = [
-  { n: '1', title: 'Create your account', desc: 'One signup — pick your role: shop as a customer or onboard your store as a seller.' },
-  { n: '2', title: 'Discover products', desc: 'Search semantically or browse by category. Ask sellers questions, read real reviews.' },
-  { n: '3', title: 'Checkout securely', desc: 'Apply coupons, pay via UPI/card/net-banking or COD, and get instant order confirmation.' },
-  { n: '4', title: 'Track & return easily', desc: 'Follow your order to your doorstep — and if it isn\'t right, returns are a few clicks.' },
-]
+import { productImageUrl } from '../format.js'
+import { useToast } from '../toast.js'
+import { useLocalization } from '../i18n.jsx'
+import FigmaHeader from './FigmaHeader.jsx'
+import FigmaFooter from './FigmaFooter.jsx'
+import ProductModal from './customer/ProductModal.jsx'
+import {
+  TrackingModal,
+  FaqModal,
+  AboutModal,
+  ContactModal,
+  GiftCardModal,
+  SpecialEventModal,
+} from './HeaderModals.jsx'
+import {
+  FIGMA_IMAGES,
+  FIGMA_COLORS,
+  FIGMA_CATEGORY_TABS,
+  FIGMA_SAMPLE_PRODUCTS,
+} from '../assets/figmaAssets.js'
+import '../figma.css'
 
 export default function Landing() {
-  const [scrolled, setScrolled] = useState(false)
+  const toast = useToast()
+  const session = getSession()
+  const { t, formatPrice, language, currency } = useLocalization()
+  const [products, setProducts] = useState(FIGMA_SAMPLE_PRODUCTS)
+  const [categories, setCategories] = useState([])
+  const [activeTab, setActiveTab] = useState('all')
+  const [activeColor, setActiveColor] = useState(null)
+  const [cartCount, setCartCount] = useState(0)
+  const [wishlistIds, setWishlistIds] = useState(new Set())
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [activeFooterModal, setActiveFooterModal] = useState(null)
 
-  // Elevate the navbar once the page scrolls for a glassy sticky header.
+  // Listen to footer modal events
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    const handleOpenModal = (e) => {
+      if (e.detail) setActiveFooterModal(e.detail)
+    }
+    window.addEventListener('shopsphere:open-modal', handleOpenModal)
+    return () => window.removeEventListener('shopsphere:open-modal', handleOpenModal)
   }, [])
 
-  const go = (path) => {
-    navigate(path)
-    window.scrollTo(0, 0)
-  }
+  // Load real products & categories from API
+  useEffect(() => {
+    let cancelled = false
+    getCategories()
+      .then((res) => {
+        if (!cancelled && res.data) setCategories(res.data)
+      })
+      .catch(() => {})
 
-  const scrollToSection = (e, id) => {
-    e.preventDefault()
-    const target = document.getElementById(id)
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      window.history.replaceState(null, '', `#${id}`)
+    getProducts({ limit: 24 })
+      .then((res) => {
+        if (!cancelled && res.data?.length > 0) {
+          const sorted = [...res.data].sort((a, b) => {
+            const hasImgA = productImageUrl(a) ? 1 : 0
+            const hasImgB = productImageUrl(b) ? 1 : 0
+            return hasImgB - hasImgA
+          })
+          setProducts(sorted)
+        }
+      })
+      .catch(() => {
+        // Fallback to sample data
+      })
+
+    if (session?.token) {
+      getCart(session.token)
+        .then((res) => {
+          if (!cancelled) setCartCount(res.data?.totalItems || 0)
+        })
+        .catch(() => {})
+
+      getWishlist(session.token)
+        .then((res) => {
+          if (!cancelled && res.data) {
+            setWishlistIds(new Set((res.data || []).map((p) => p._id || p.id)))
+          }
+        })
+        .catch(() => {})
+    }
+
+    return () => { cancelled = true }
+  }, [session?.token])
+
+  const handleToggleWishlist = async (productId, e) => {
+    e?.stopPropagation?.()
+    if (!session) {
+      navigate('/login')
+      return
+    }
+    try {
+      await toggleWishlist(session.token, productId)
+      setWishlistIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(productId)) next.delete(productId)
+        else next.add(productId)
+        return next
+      })
+      toast.success('Wishlist updated')
+    } catch (err) {
+      toast.error(err.message || 'Could not update wishlist')
     }
   }
 
+  const handleQuickAdd = async (product, e) => {
+    e?.stopPropagation?.()
+    if (!session) {
+      navigate('/login')
+      return
+    }
+    try {
+      await addToCart(session.token, { productId: product._id, quantity: 1 })
+      setCartCount((c) => c + 1)
+      toast.success(t('addedToCart'))
+    } catch (err) {
+      toast.error(err.message || 'Could not add to cart')
+    }
+  }
+
+  // Filter products by tab & color
+  const filteredProducts = products.filter((p) => {
+    if (activeTab !== 'all') {
+      const matchCat = (p.category?.name || p.category || '').toLowerCase().includes(activeTab) ||
+        (p.name || '').toLowerCase().includes(activeTab)
+      if (!matchCat) return false
+    }
+    if (activeColor) {
+      const matchColor = (p.color || '').toLowerCase().includes(activeColor.filter) ||
+        (p.name || '').toLowerCase().includes(activeColor.filter) ||
+        (p.description || '').toLowerCase().includes(activeColor.filter)
+      if (!matchColor) return false
+    }
+    return true
+  }).slice(0, 9)
+
+  const displayedProducts = filteredProducts.length > 0 ? filteredProducts : products.slice(0, 9)
+
+  // Translated tab labels
+  const tabLabels = {
+    all: t('all'),
+    latest: t('latest'),
+    popular: t('popular'),
+    sale: t('sale'),
+  }
+
   return (
-    <div className="landing-page">
-      {/* ── Navbar ─────────────────────────────────────────── */}
-      <header className={`lpg-nav ${scrolled ? 'lpg-nav-scrolled' : ''}`}>
-        <button className="lpg-logo" onClick={() => go('/')}>
-          <span className="lpg-logo-mark">🛍️</span> ShopSphere
-        </button>
-        <nav className="lpg-nav-links">
-          <a href="#features" onClick={(e) => scrollToSection(e, 'features')}>Features</a>
-          <a href="#roles" onClick={(e) => scrollToSection(e, 'roles')}>Who it's for</a>
-          <a href="#how" onClick={(e) => scrollToSection(e, 'how')}>How it works</a>
-        </nav>
-        <div className="lpg-nav-actions">
-          <button className="btn btn-ghost btn-sm" onClick={() => go('/login')}>
-            Log in
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={() => go('/register')}>
-            Get started
-          </button>
-        </div>
-      </header>
+    <div className="figma-landing-wrapper">
+      {/* ── Top Header ───────────────────────────────────────── */}
+      <FigmaHeader
+        cartCount={cartCount}
+        wishlistCount={wishlistIds.size}
+        categories={categories}
+        onSearch={(q) => navigate(`/customer/explore?q=${encodeURIComponent(q)}`)}
+        onCartClick={() => navigate(session ? '/customer/cart' : '/login')}
+        onWishlistClick={() => navigate(session ? '/customer/wishlist' : '/login')}
+      />
 
-      {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="lpg-hero">
-        <div className="lpg-hero-glow" aria-hidden="true" />
-        <span className="lpg-eyebrow">✨ The multi-vendor marketplace, reimagined</span>
-        <h1>
-          Shop everything.
-          <br />
-          <span className="lpg-gradient-text">From every seller.</span>
-        </h1>
-        <p className="lpg-hero-sub">
-          ShopSphere brings customers, sellers and delivery partners onto one platform — with
-          AI-powered search, secure payments, real-time chat and a returns flow that
-          actually works.
-        </p>
-        <div className="lpg-hero-actions">
-          <button className="btn btn-primary btn-lg" onClick={() => go('/register')}>
-            Start shopping free
-          </button>
-          <button className="btn btn-secondary btn-lg" onClick={() => go('/register')}>
-            Become a seller →
-          </button>
-        </div>
-        <p className="lpg-hero-note">No credit card needed · Free to join · Cancel anytime</p>
-
-        {/* Mock browser card */}
-        <div className="lpg-hero-mock" aria-hidden="true">
-          <div className="lpg-mock-bar">
-            <span /><span /><span />
-            <em>shopsphere.app/explore</em>
-          </div>
-          <div className="lpg-mock-body">
-            <div className="lpg-mock-search">🔍 semantic search: &ldquo;waterproof laptop bag&rdquo;</div>
-            <div className="lpg-mock-grid">
-              {['🎒', '🧥', '⌚', '👟', '🎧', '📱'].map((e, i) => (
-                <div className="lpg-mock-card" key={i}>
-                  <div className="lpg-mock-thumb">{e}</div>
-                  <div className="lpg-mock-line" style={{ width: `${82 - i * 6}%` }} />
-                  <div className="lpg-mock-line short" />
-                  <div className="lpg-mock-price" />
+      <main>
+        {/* ── 1. Bento Grid Hero Section ──────────────────────── */}
+        <section className="figma-hero-section">
+          <div className="figma-container">
+            <div className="figma-hero-bento-grid">
+              {/* Main Card: Color of Summer Outfit */}
+              <div
+                className="figma-hero-main-card"
+                style={{ backgroundImage: `url(${FIGMA_IMAGES.heroSummer})` }}
+              >
+                <div className="figma-hero-main-content">
+                  <h1 className="figma-hero-main-title">
+                    {t('heroMainTitle1')}<br />{t('heroMainTitle2')}<br />{t('heroMainTitle3')}
+                  </h1>
+                  <p className="figma-hero-main-desc">
+                    {t('heroMainDesc')}
+                  </p>
+                  <button
+                    type="button"
+                    className="figma-hero-main-btn"
+                    onClick={() => navigate('/customer/explore')}
+                  >
+                    {t('viewCollections')}
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* Right Stack: Outdoor Active & Casual Comfort */}
+              <div className="figma-hero-right-stack">
+                <div
+                  className="figma-hero-sub-card outdoor"
+                  style={{ backgroundImage: `url(${FIGMA_IMAGES.heroOutdoor})` }}
+                  onClick={() => navigate('/customer/explore?cat=outdoor')}
+                >
+                  <h2 className="figma-hero-sub-title">{t('outdoorActive')}</h2>
+                </div>
+
+                <div
+                  className="figma-hero-sub-card comfort"
+                  style={{ backgroundImage: `url(${FIGMA_IMAGES.heroCasual})` }}
+                  onClick={() => navigate('/customer/explore?cat=casual')}
+                >
+                  <h2 className="figma-hero-sub-title">{t('casualComfort')}</h2>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Features ───────────────────────────────────────── */}
-      <section className="lpg-section" id="features">
-        <span className="lpg-eyebrow lpg-eyebrow-center">Everything in one place</span>
-        <h2 className="lpg-h2">Built for the whole marketplace</h2>
-        <p className="lpg-sub">
-          Every role gets a purpose-built dashboard, backed by the same fast, secure
-          core.
-        </p>
-        <div className="lpg-grid lpg-grid-3">
-          {FEATURES.map((f) => (
-            <article className="lpg-feature" key={f.title}>
-              <span className="lpg-feature-icon">{f.icon}</span>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+        {/* ── 2. Casual Inspirations Section ──────────────────── */}
+        <section className="figma-inspirations-section">
+          <div className="figma-container">
+            <div className="figma-inspirations-grid">
+              {/* Left Text Block */}
+              <div className="figma-inspire-text-card">
+                <h2 className="figma-inspire-heading">
+                  {t('casualInspirations')}
+                </h2>
+                <p className="figma-inspire-desc">
+                  {t('casualInspirationsDesc')}
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    className="figma-btn-outline-pill"
+                    onClick={() => navigate('/customer/explore')}
+                  >
+                    {t('browseInspirations')}
+                  </button>
+                </div>
+              </div>
 
-      {/* ── Roles ──────────────────────────────────────────── */}
-      <section className="lpg-section lpg-section-alt" id="roles">
-        <span className="lpg-eyebrow lpg-eyebrow-center">One platform, three dashboards</span>
-        <h2 className="lpg-h2">Who it's for</h2>
-        <p className="lpg-sub">Pick your role — ShopSphere shapes itself around you.</p>
-        <div className="lpg-grid lpg-grid-3">
-          {ROLES.map((r) => (
-            <article className="lpg-role" key={r.title} style={{ '--role-accent': r.accent }}>
-              <span className="lpg-role-icon">{r.icon}</span>
-              <h3>{r.title}</h3>
-              <ul>
-                {r.points.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
+              {/* Middle Card: Say it with Shirt */}
+              <div
+                className="figma-inspire-photo-card"
+                style={{ backgroundImage: `url(${FIGMA_IMAGES.inspireSayShirt})` }}
+                onClick={() => navigate('/customer/explore?cat=tshirt')}
+              >
+                <span className="figma-inspire-card-title">{t('sayItWithShirt')}</span>
+                <span className="figma-inspire-arrow-btn" aria-label="Explore shirts">
+                  <ArrowUpRight size={18} strokeWidth={2.5} />
+                </span>
+              </div>
 
-      {/* ── How it works ───────────────────────────────────── */}
-      <section className="lpg-section" id="how">
-        <span className="lpg-eyebrow lpg-eyebrow-center">From browse to doorstep</span>
-        <h2 className="lpg-h2">How it works</h2>
-        <div className="lpg-steps">
-          {STEPS.map((s) => (
-            <div className="lpg-step" key={s.n}>
-              <span className="lpg-step-num">{s.n}</span>
-              <h3>{s.title}</h3>
-              <p>{s.desc}</p>
+              {/* Right Card: Funky never get old */}
+              <div
+                className="figma-inspire-photo-card"
+                style={{ backgroundImage: `url(${FIGMA_IMAGES.inspireFunky})` }}
+                onClick={() => navigate('/customer/explore?cat=jackets')}
+              >
+                <span className="figma-inspire-card-title">{t('funkyNeverGetOld')}</span>
+                <span className="figma-inspire-arrow-btn" aria-label="Explore jackets">
+                  <ArrowUpRight size={18} strokeWidth={2.5} />
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* ── Final CTA ──────────────────────────────────────── */}
-      <section className="lpg-cta">
-        <h2>Ready to dive in?</h2>
-        <p>Join thousands of shoppers and sellers already on ShopSphere.</p>
-        <div className="lpg-hero-actions">
-          <button className="btn btn-lg lpg-btn-light" onClick={() => go('/register')}>
-            Create your account
-          </button>
-          <button className="btn btn-lg btn-secondary" onClick={() => go('/login')}>
-            I already have one
-          </button>
-        </div>
-      </section>
+        {/* ── 3. Trending Products Section ────────────────────── */}
+        <section className="figma-trending-section">
+          <div className="figma-container">
+            <div className="figma-trending-header">
+              <h2 className="figma-section-title">{t('trending')}</h2>
+              <div className="figma-category-tabs">
+                {FIGMA_CATEGORY_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`figma-cat-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      setActiveColor(null)
+                    }}
+                  >
+                    {tabLabels[tab.id] || tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* ── Footer ─────────────────────────────────────────── */}
-      <footer className="lpg-footer">
-        <div className="lpg-footer-brand">🛍️ ShopSphere</div>
-        <p>Multi-vendor e-commerce — customers shop, sellers sell, delivery partners fulfill.</p>
-        <div className="lpg-footer-links">
-          <a href="#features" onClick={(e) => scrollToSection(e, 'features')}>Features</a>
-          <a href="#roles" onClick={(e) => scrollToSection(e, 'roles')}>Who it's for</a>
-          <a href="#how" onClick={(e) => scrollToSection(e, 'how')}>How it works</a>
-          <button className="lpg-footer-link" onClick={() => go('/login')}>Log in</button>
-          <button className="lpg-footer-link" onClick={() => go('/register')}>Register</button>
-        </div>
-        <small>© {new Date().getFullYear()} ShopSphere. Built with the Freebuff stack.</small>
-      </footer>
+            <div className="figma-product-grid">
+              {displayedProducts.map((product) => {
+                const img = productImageUrl(product)
+                const isWish = wishlistIds.has(product._id)
+                return (
+                  <div
+                    key={product._id}
+                    className="figma-product-card"
+                    onClick={() => setSelectedProduct(product)}
+                  >
+                    <div className="figma-product-img-wrapper">
+                      <button
+                        type="button"
+                        className={`figma-product-wishlist-btn ${isWish ? 'active' : ''}`}
+                        onClick={(e) => handleToggleWishlist(product._id, e)}
+                        aria-label="Wishlist"
+                      >
+                        <Heart size={16} strokeWidth={2.2} fill={isWish ? 'currentColor' : 'none'} />
+                      </button>
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={product.name}
+                          className="figma-product-img"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="figma-product-placeholder">
+                          <ShoppingBag size={34} strokeWidth={1.5} />
+                          <span>{product.name}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="figma-product-info">
+                      <h3 className="figma-product-title">{product.name}</h3>
+                      <div className="figma-product-card-bottom">
+                        <span className="figma-product-price">{formatPrice(product.price)}</span>
+                        <button
+                          type="button"
+                          className="figma-quick-add-btn"
+                          onClick={(e) => handleQuickAdd(product, e)}
+                        >
+                          {t('add')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ── 4. Explore by Colors Section ────────────────────── */}
+        <section className="figma-colors-section">
+          <div className="figma-container">
+            <div className="figma-colors-container">
+              <h2 className="figma-colors-title">
+                Explore<br />by Colors
+              </h2>
+              <div className="figma-colors-pills-grid">
+                {FIGMA_COLORS.map((col) => {
+                  const isSelected = activeColor?.name === col.name
+                  return (
+                    <button
+                      key={col.name}
+                      type="button"
+                      className={`figma-color-pill-btn ${isSelected ? 'active' : ''}`}
+                      onClick={() => setActiveColor(isSelected ? null : col)}
+                    >
+                      <span
+                        className="figma-color-dot"
+                        style={{
+                          backgroundColor: col.hex,
+                          border: col.border ? `1px solid ${col.border}` : 'none',
+                        }}
+                      />
+                      <span>{col.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 5. Testimonial Dark Banner ──────────────────────── */}
+        <section className="figma-testimonial-section" id="testimonial">
+          <div className="figma-container">
+            <div className="figma-testimonial-card">
+              <div className="figma-testimonial-content">
+                <span className="figma-testimonial-eyebrow">What people said</span>
+                <h2 className="figma-testimonial-heading">
+                  Love the way they<br />handle the order.
+                </h2>
+                <p className="figma-testimonial-quote">
+                  {t('testimonialQuote')}
+                </p>
+                <div className="figma-testimonial-author">
+                  <strong>{t('testimonialAuthor')}</strong>
+                  <span>{t('testimonialRole')}</span>
+                </div>
+              </div>
+              <img
+                src={FIGMA_IMAGES.testimonialSamantha}
+                alt="Samantha William"
+                className="figma-testimonial-img"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ── 6. Value Proposition Section ────────────────────── */}
+        <section className="figma-why-section" id="about">
+          <div className="figma-container">
+            <h2 className="figma-why-title">
+              {t('whyShopTitle')}
+            </h2>
+            <div className="figma-why-grid">
+              <div className="figma-why-item">
+                <div className="figma-why-icon-circle">
+                  <Heart size={22} strokeWidth={2.2} fill="currentColor" />
+                </div>
+                <h3 className="figma-why-heading">{t('fastDeliveryTitle')}</h3>
+                <p className="figma-why-desc">
+                  {t('fastDeliveryDesc')}
+                </p>
+              </div>
+
+              <div className="figma-why-item">
+                <div className="figma-why-icon-circle">
+                  <Phone size={22} strokeWidth={2.2} />
+                </div>
+                <h3 className="figma-why-heading">{t('supportTitle')}</h3>
+                <p className="figma-why-desc">
+                  {t('supportDesc')}
+                </p>
+              </div>
+
+              <div className="figma-why-item">
+                <div className="figma-why-icon-circle">
+                  <RotateCcw size={22} strokeWidth={2.2} />
+                </div>
+                <h3 className="figma-why-heading">{t('moneyBackTitle')}</h3>
+                <p className="figma-why-desc">
+                  {t('moneyBackDesc')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 7. From The Blog Section ────────────────────────── */}
+        <section className="figma-blog-section" id="blog">
+          <div className="figma-container">
+            <h4 className="figma-blog-label">{t('fromTheBlog')}</h4>
+            <div className="figma-blog-grid">
+              <div className="figma-blog-img-container">
+                <img
+                  src={FIGMA_IMAGES.blogWardrobe}
+                  alt="Daily Outfit Combinations"
+                  className="figma-blog-img"
+                  loading="lazy"
+                />
+              </div>
+              <div className="figma-blog-content">
+                <h2 className="figma-blog-title">
+                  {t('summerTrends')}
+                </h2>
+                <p className="figma-blog-desc">
+                  {t('summerTrendsDesc')}
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    className="figma-btn-outline-pill"
+                    onClick={() => setActiveFooterModal('about')}
+                  >
+                    {t('readArticle')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ── Dark Global Footer ──────────────────────────────── */}
+      <FigmaFooter onOpenModal={(modal) => setActiveFooterModal(modal)} />
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          token={session?.token}
+          user={session?.user}
+          isWishlisted={wishlistIds.has(selectedProduct._id)}
+          onToggleWishlist={async (id) => {
+            await handleToggleWishlist(id)
+          }}
+          onClose={() => setSelectedProduct(null)}
+          onCartChanged={() => setCartCount((c) => c + 1)}
+        />
+      )}
+
+      {/* Modals triggered from footer or global events */}
+      <TrackingModal
+        isOpen={activeFooterModal === 'tracking'}
+        onClose={() => setActiveFooterModal(null)}
+        session={session}
+      />
+      <FaqModal
+        isOpen={activeFooterModal === 'faq'}
+        onClose={() => setActiveFooterModal(null)}
+      />
+      <AboutModal
+        isOpen={activeFooterModal === 'about'}
+        onClose={() => setActiveFooterModal(null)}
+      />
+      <ContactModal
+        isOpen={activeFooterModal === 'contact'}
+        onClose={() => setActiveFooterModal(null)}
+      />
+      <GiftCardModal
+        isOpen={activeFooterModal === 'giftcards'}
+        onClose={() => setActiveFooterModal(null)}
+      />
+      <SpecialEventModal
+        isOpen={activeFooterModal === 'specialevent'}
+        onClose={() => setActiveFooterModal(null)}
+      />
     </div>
   )
 }

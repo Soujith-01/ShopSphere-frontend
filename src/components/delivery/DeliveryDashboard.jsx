@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
+  LayoutDashboard,
+  Navigation,
+  Truck,
+  Package,
+  RotateCcw,
+  Clock,
+  User,
+  ShoppingBag,
+} from 'lucide-react'
+import {
   clearSession, logout, getMe,
   deliveryGetStats, deliveryGetActive, deliveryGetAvailable, deliveryGetActiveReturns,
   deliveryUpdateProfile,
@@ -14,13 +24,13 @@ import DeliveryProfileView from './DeliveryProfileView.jsx'
 
 // Each tab is its own URL: /delivery/overview, /delivery/available, ...
 const NAV = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'assigned', label: 'Assigned to me', icon: '🎯' },
-  { key: 'available', label: 'Available', icon: '🚚' },
-  { key: 'active', label: 'My deliveries', icon: '📦' },
-  { key: 'returns', label: 'Return pickups', icon: '↩️' },
-  { key: 'history', label: 'History', icon: '🕘' },
-  { key: 'profile', label: 'Profile', icon: '👤' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'assigned', label: 'Assigned to me', icon: Navigation },
+  { key: 'available', label: 'Available', icon: Truck },
+  { key: 'active', label: 'My deliveries', icon: Package },
+  { key: 'returns', label: 'Return pickups', icon: RotateCcw },
+  { key: 'history', label: 'History', icon: Clock },
+  { key: 'profile', label: 'Profile', icon: User },
 ]
 
 const TAB_KEYS = NAV.map((n) => n.key)
@@ -87,25 +97,33 @@ export default function DeliveryDashboard({ session, onLogout }) {
   return (
     <div className="dashboard">
       <aside className="sidebar">
-        <div className="brand sidebar-brand">🛍️ ShopSphere</div>
+        <div className="brand sidebar-brand">
+          <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
+          <span>ShopSphere</span>
+        </div>
         <nav className="sidebar-nav">
-          {NAV.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`nav-item ${tab === item.key ? 'active' : ''}`}
-              onClick={() => navigate(`/delivery/${item.key}`)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-              {item.key === 'available' && availableCount > 0 && (
-                <span className="nav-badge">{availableCount}</span>
-              )}
-              {item.key === 'returns' && activeReturnsCount > 0 && (
-                <span className="nav-badge">{activeReturnsCount}</span>
-              )}
-            </button>
-          ))}
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`nav-item ${tab === item.key ? 'active' : ''}`}
+                onClick={() => navigate(`/delivery/${item.key}`)}
+              >
+                <span className="nav-icon">
+                  <Icon size={18} strokeWidth={2} />
+                </span>
+                <span className="nav-label">{item.label}</span>
+                {item.key === 'available' && availableCount > 0 && (
+                  <span className="nav-badge">{availableCount}</span>
+                )}
+                {item.key === 'returns' && activeReturnsCount > 0 && (
+                  <span className="nav-badge">{activeReturnsCount}</span>
+                )}
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-user">

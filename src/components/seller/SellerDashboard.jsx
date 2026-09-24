@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
+  LayoutDashboard,
+  Store,
+  ShoppingBag,
+  Package,
+  RotateCcw,
+  Wallet,
+  MessageSquare,
+  Bell,
+} from 'lucide-react'
+import {
   clearSession, logout,
   sellerGetDashboard, sellerGetRecentOrders, sellerGetRevenueChart, sellerGetStore,
   sellerReshareSheet, sellerSyncFromSheet,
@@ -18,14 +28,14 @@ import MessagesView from '../chat/MessagesView.jsx'
 
 // Each tab is its own URL: /seller/overview, /seller/products, ...
 const NAV = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'store', label: 'My Store', icon: '🏪' },
-  { key: 'products', label: 'Products', icon: '🛍️' },
-  { key: 'orders', label: 'Orders', icon: '📦' },
-  { key: 'returns', label: 'Returns', icon: '↩️' },
-  { key: 'wallet', label: 'Wallet', icon: '💰' },
-  { key: 'messages', label: 'Messages', icon: '💬' },
-  { key: 'notifications', label: 'Notifications', icon: '🔔' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'store', label: 'My Store', icon: Store },
+  { key: 'products', label: 'Products', icon: ShoppingBag },
+  { key: 'orders', label: 'Orders', icon: Package },
+  { key: 'returns', label: 'Returns', icon: RotateCcw },
+  { key: 'wallet', label: 'Wallet', icon: Wallet },
+  { key: 'messages', label: 'Messages', icon: MessageSquare },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
 ]
 
 const TAB_KEYS = NAV.map((n) => n.key)
@@ -66,19 +76,27 @@ export default function SellerDashboard({ session, onLogout }) {
   return (
     <div className="dashboard">
       <aside className="sidebar">
-        <div className="brand sidebar-brand">🛍️ ShopSphere</div>
+        <div className="brand sidebar-brand">
+          <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
+          <span>ShopSphere</span>
+        </div>
         <nav className="sidebar-nav">
-          {NAV.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`nav-item ${tab === item.key ? 'active' : ''}`}
-              onClick={() => navigate(`/seller/${item.key}`)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </button>
-          ))}
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`nav-item ${tab === item.key ? 'active' : ''}`}
+                onClick={() => navigate(`/seller/${item.key}`)}
+              >
+                <span className="nav-icon">
+                  <Icon size={18} strokeWidth={2} />
+                </span>
+                <span className="nav-label">{item.label}</span>
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-user">

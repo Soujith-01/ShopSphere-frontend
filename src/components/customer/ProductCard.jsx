@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Heart, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react'
 import { addToCart } from '../../api.js'
 import { formatINR, productImageUrl, getDiscountLabel } from '../../format.js'
 import { useToast } from '../../toast.js'
@@ -181,7 +182,9 @@ export default function ProductCard({ product, token, isWishlisted, onToggleWish
             </div>
           </div>
         ) : (
-          <div className="img-ph">📦</div>
+          <div className="img-ph">
+            <ShoppingBag size={32} strokeWidth={1.5} color="#999" />
+          </div>
         )}
 
         <button
@@ -190,7 +193,7 @@ export default function ProductCard({ product, token, isWishlisted, onToggleWish
           onClick={handleWishlist}
           aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
-          {isWishlisted ? '♥' : '♡'}
+          <Heart size={15} strokeWidth={2.2} fill={isWishlisted ? 'currentColor' : 'none'} />
         </button>
 
         {hasMultiple && (
@@ -202,7 +205,7 @@ export default function ProductCard({ product, token, isWishlisted, onToggleWish
               aria-label="Previous photo"
               title="Previous photo"
             >
-              ‹
+              <ChevronLeft size={16} strokeWidth={2.5} />
             </button>
             <button
               type="button"
@@ -211,7 +214,7 @@ export default function ProductCard({ product, token, isWishlisted, onToggleWish
               aria-label="Next photo"
               title="Next photo"
             >
-              ›
+              <ChevronRight size={16} strokeWidth={2.5} />
             </button>
 
             <span className="product-slider-badge">
@@ -248,12 +251,12 @@ export default function ProductCard({ product, token, isWishlisted, onToggleWish
           {isOutOfStock ? (
             <span className="out-of-stock-pill">Out of Stock</span>
           ) : product.hasVariants ? (
-            <button type="button" className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); onOpen(product) }}>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={(e) => { e.stopPropagation(); onOpen(product) }}>
               View options
             </button>
           ) : (
             <button type="button" className="btn btn-sm btn-primary" disabled={adding} onClick={handleQuickAdd}>
-              {adding ? <><Spinner small /> Adding…</> : 'Add to cart'}
+              {adding ? <><Spinner small /> Adding…</> : '+ Add to cart'}
             </button>
           )}
         </div>

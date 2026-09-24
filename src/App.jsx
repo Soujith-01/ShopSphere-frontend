@@ -118,6 +118,16 @@ export default function App() {
     )
   }
 
+  // ── Public Storefront Home ───────────────────────────
+  if (root === '/') {
+    return (
+      <div className="app">
+        <Landing />
+      </div>
+    )
+  }
+
+  // ── Authenticated User Routes ─────────────────────────
   if (session) {
     const role = session.user?.role || 'customer'
 
@@ -147,8 +157,8 @@ export default function App() {
       )
     }
     if (root === '/login' || root === '/register') {
-      // Already signed in — auth pages just send users to their dashboard.
-      navigate(homeFor(session))
+      // Already signed in — redirect to dashboard without creating a back-button loop.
+      navigate(homeFor(session), { replace: true })
       return null
     }
 
@@ -176,12 +186,13 @@ export default function App() {
     )
   }
 
-  // Not signed in — public pages. Dashboard URLs redirect to login.
+  // ── Unauthenticated / Guest Routes ────────────────────
   if (root === '/login') {
     return (
       <div className="app">
         <main className="auth-shell">
           <Login
+            onBack={() => navigate('/')}
             onSwitchToRegister={() => navigate('/register')}
             onAuthed={handleAuth}
           />
@@ -195,6 +206,7 @@ export default function App() {
       <div className="app">
         <main className="auth-shell">
           <Register
+            onBack={() => navigate('/')}
             onSwitchToLogin={() => navigate('/login')}
             onAuthed={handleAuth}
           />
@@ -203,15 +215,7 @@ export default function App() {
     )
   }
 
-  if (root === '/') {
-    return (
-      <div className="app">
-        <Landing />
-      </div>
-    )
-  }
-
-  // Signed-out user hit a dashboard URL (e.g. /customer/cart) → go log in.
-  navigate('/login')
+  // Signed-out user hit a dashboard URL (e.g. /customer/cart) → redirect to login without polluting history
+  navigate('/login', { replace: true })
   return null
 }

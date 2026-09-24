@@ -1,36 +1,69 @@
-:root {
-  --bg: #faf9fc;
-  --surface: #ffffff;
-  --text: #4b4453;
-  --text-h: #140e1d;
-  --muted: #8a8394;
-  --border: #e7e3ee;
-  --accent: #6c3ef2;
-  --accent-dark: #5730d6;
-  --accent-soft: #efeafd;
-  --danger: #d92d20;
-  --danger-bg: #fef3f2;
-  --success: #16a34a;
-  --success-bg: #e9f9ef;
-  --radius: 14px;
-  --shadow: 0 20px 50px -24px rgba(20, 14, 29, 0.35);
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap');
 
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+:root {
+  /* Paperpillar Figma Color Tokens */
+  --bg: #ffffff;
+  --bg-subtle: #f7f7f7;
+  --surface: #ffffff;
+  --surface-alt: #f4f4f4;
+  --surface-hover: #ebebeb;
+  
+  --text: #1d1d1d;
+  --text-h: #111111;
+  --muted: #717171;
+  --muted-light: #8e8e93;
+  --border: #e8e8e8;
+  --border-subtle: #f0f0f0;
+  
+  /* Brand & Accent Tokens */
+  --accent: #111111;
+  --accent-dark: #000000;
+  --accent-soft: #f4f4f4;
+  --accent-blue: #233c6b;
+  --accent-hero-green: #6a7b6b;
+  --accent-hero-amber: #b8936d;
+  --accent-banner: #4a463e;
+  
+  --danger: #f15353;
+  --danger-bg: #fef2f2;
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  
+  /* Shapes & Radii matching Figma */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-card: 20px;
+  --radius-hero: 24px;
+  --radius-pill: 9999px;
+  --radius: 16px;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.09);
+  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
   margin: 0;
   min-height: 100svh;
+  color: var(--text);
+  background: var(--bg);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 #root {
@@ -40,4 +73,20 @@ body {
 button {
   font: inherit;
   cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, select, textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
 }

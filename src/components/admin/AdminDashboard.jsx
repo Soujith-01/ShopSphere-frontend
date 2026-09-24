@@ -1,5 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
+  LayoutDashboard,
+  Users,
+  Store,
+  Truck,
+  ShoppingBag,
+  Layers,
+  Package,
+  RotateCcw,
+  Ticket,
+  Bell,
+  ShieldCheck,
+} from 'lucide-react'
+import {
   clearSession, logout,
   adminGetOverview, adminGetRevenueChart, adminGetTopSellers, adminGetTopProducts,
   adminGetNotifications,
@@ -20,16 +33,16 @@ import AdminNotificationsView from './AdminNotificationsView.jsx'
 
 // Each tab is its own URL: /admin/overview, /admin/users, ...
 const NAV = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'users', label: 'Users', icon: '👥' },
-  { key: 'sellers', label: 'Sellers', icon: '🏪' },
-  { key: 'delivery', label: 'Delivery agents', icon: '🛵' },
-  { key: 'products', label: 'Products', icon: '🛍️' },
-  { key: 'categories', label: 'Categories', icon: '🗂️' },
-  { key: 'orders', label: 'Orders', icon: '📦' },
-  { key: 'returns', label: 'Returns', icon: '↩️' },
-  { key: 'coupons', label: 'Coupons', icon: '🎟️' },
-  { key: 'notifications', label: 'Notifications', icon: '🔔' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'users', label: 'Users', icon: Users },
+  { key: 'sellers', label: 'Sellers', icon: Store },
+  { key: 'delivery', label: 'Delivery agents', icon: Truck },
+  { key: 'products', label: 'Products', icon: ShoppingBag },
+  { key: 'categories', label: 'Categories', icon: Layers },
+  { key: 'orders', label: 'Orders', icon: Package },
+  { key: 'returns', label: 'Returns', icon: RotateCcw },
+  { key: 'coupons', label: 'Coupons', icon: Ticket },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
 ]
 
 const TAB_KEYS = NAV.map((n) => n.key)
@@ -98,32 +111,42 @@ export default function AdminDashboard({ session, onLogout }) {
   return (
     <div className="dashboard">
       <aside className="sidebar">
-        <div className="brand sidebar-brand">🛍️ ShopSphere</div>
+        <div className="brand sidebar-brand">
+          <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
+          <span>ShopSphere</span>
+        </div>
         <nav className="sidebar-nav">
-          {NAV.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`nav-item ${tab === item.key ? 'active' : ''}`}
-              onClick={() => navigate(`/admin/${item.key}`)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-              {item.key === 'products' && pendingCount > 0 && (
-                <span className="nav-badge">{pendingCount}</span>
-              )}
-              {item.key === 'delivery' && pendingDeliveryAgents > 0 && (
-                <span className="nav-badge">{pendingDeliveryAgents}</span>
-              )}
-              {item.key === 'notifications' && unreadNotifs > 0 && (
-                <span className="nav-badge">{unreadNotifs}</span>
-              )}
-            </button>
-          ))}
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`nav-item ${tab === item.key ? 'active' : ''}`}
+                onClick={() => navigate(`/admin/${item.key}`)}
+              >
+                <span className="nav-icon">
+                  <Icon size={18} strokeWidth={2} />
+                </span>
+                <span className="nav-label">{item.label}</span>
+                {item.key === 'products' && pendingCount > 0 && (
+                  <span className="nav-badge">{pendingCount}</span>
+                )}
+                {item.key === 'delivery' && pendingDeliveryAgents > 0 && (
+                  <span className="nav-badge">{pendingDeliveryAgents}</span>
+                )}
+                {item.key === 'notifications' && unreadNotifs > 0 && (
+                  <span className="nav-badge">{unreadNotifs}</span>
+                )}
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-user">
-          <div className="sidebar-avatar">🛡️</div>
+          <div className="sidebar-avatar">
+            <ShieldCheck size={18} strokeWidth={2.2} />
+          </div>
           <div className="sidebar-user-info">
             <strong>{session.user?.name}</strong>
             <span>admin</span>

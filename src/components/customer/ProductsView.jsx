@@ -242,6 +242,27 @@ export default function ProductsView({ token, user, onCartChanged }) {
 
   return (
     <div className="products-view">
+      {/* Category Filter Pills */}
+      <div className="figma-category-tabs" style={{ marginBottom: '18px' }}>
+        <button
+          type="button"
+          className={`figma-cat-tab-btn ${!category ? 'active' : ''}`}
+          onClick={() => { setCategory(''); setPage(1) }}
+        >
+          ALL
+        </button>
+        {categoryOptions.slice(0, 6).map((c) => (
+          <button
+            key={c._id}
+            type="button"
+            className={`figma-cat-tab-btn ${category === c._id ? 'active' : ''}`}
+            onClick={() => { setCategory(c._id); setPage(1) }}
+          >
+            {c.name.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
       <div className="filters">
         <form
           ref={searchContainerRef}

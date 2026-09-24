@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
+  LayoutDashboard,
+  MessageSquare,
+  LifeBuoy,
+  Bell,
+  ShoppingBag,
+  Headphones,
+} from 'lucide-react'
+import {
   clearSession, logout,
   supportGetStats, supportGetNotifications,
 } from '../../api.js'
@@ -13,10 +21,10 @@ import SupportNotificationsView from './SupportNotificationsView.jsx'
 
 // Each tab is its own URL: /support/overview, /support/chat, ...
 const NAV = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'chat', label: 'Live chat', icon: '💬' },
-  { key: 'tickets', label: 'Tickets', icon: '🎫' },
-  { key: 'notifications', label: 'Notifications', icon: '🔔' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'chat', label: 'Live chat', icon: MessageSquare },
+  { key: 'tickets', label: 'Tickets', icon: LifeBuoy },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
 ]
 
 const TAB_KEYS = NAV.map((n) => n.key)
@@ -66,29 +74,39 @@ export default function SupportDashboard({ session, onLogout }) {
   return (
     <div className="dashboard">
       <aside className="sidebar">
-        <div className="brand sidebar-brand">🛍️ ShopSphere</div>
+        <div className="brand sidebar-brand">
+          <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
+          <span>ShopSphere</span>
+        </div>
         <nav className="sidebar-nav">
-          {NAV.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`nav-item ${tab === item.key ? 'active' : ''}`}
-              onClick={() => navigate(`/support/${item.key}`)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-              {item.key === 'tickets' && openCount > 0 && (
-                <span className="nav-badge">{openCount}</span>
-              )}
-              {item.key === 'notifications' && unreadNotifs > 0 && (
-                <span className="nav-badge">{unreadNotifs}</span>
-              )}
-            </button>
-          ))}
+          {NAV.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`nav-item ${tab === item.key ? 'active' : ''}`}
+                onClick={() => navigate(`/support/${item.key}`)}
+              >
+                <span className="nav-icon">
+                  <Icon size={18} strokeWidth={2} />
+                </span>
+                <span className="nav-label">{item.label}</span>
+                {item.key === 'tickets' && openCount > 0 && (
+                  <span className="nav-badge">{openCount}</span>
+                )}
+                {item.key === 'notifications' && unreadNotifs > 0 && (
+                  <span className="nav-badge">{unreadNotifs}</span>
+                )}
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-user">
-          <div className="sidebar-avatar">🎧</div>
+          <div className="sidebar-avatar">
+            <Headphones size={18} strokeWidth={2.2} />
+          </div>
           <div className="sidebar-user-info">
             <strong>{session.user?.name}</strong>
             <span>support agent</span>
