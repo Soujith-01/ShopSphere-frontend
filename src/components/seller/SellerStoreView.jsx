@@ -230,21 +230,19 @@ function StoreSummary({ store, onEdit }) {
               </p>
             )}
         </div>
-        {store.googleSheet?.spreadsheetUrl && (
-          <div className="store-fact">
-            <span className="muted small">Inventory Sheet</span>
-            <p style={{ margin: 0 }}>
-              <a
-                href={store.googleSheet.spreadsheetUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontWeight: 600, color: 'var(--accent)', textDecoration: 'underline' }}
-              >
-                📊 Open Google Spreadsheet ↗
-              </a>
-            </p>
-          </div>
-        )}
+        <div className="store-fact">
+          <span className="muted small">Inventory Sheet</span>
+          <p style={{ margin: 0 }}>
+            <a
+              href={store.googleSheet?.spreadsheetUrl || 'https://docs.google.com/spreadsheets/d/19Mxj2xBBfUDo1Kd1BJmy7frN_mDi9QnyPvIJ7IBX1nk/edit'}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontWeight: 600, color: 'var(--accent)', textDecoration: 'underline' }}
+            >
+              📊 Open Google Spreadsheet ↗
+            </a>
+          </p>
+        </div>
       </div>
 
       <p className="muted small" style={{ margin: 0 }}>

@@ -17,6 +17,7 @@ import {
   Info,
   Truck,
   LogIn,
+  Check,
 } from 'lucide-react'
 import { navigate } from '../router.js'
 import { getSession, clearSession } from '../api.js'
@@ -46,12 +47,8 @@ export default function FigmaHeader({
     language,
     setLanguage,
     currentLangObj,
-    currency,
-    setCurrency,
-    currentCurrObj,
     t,
     LANGUAGES,
-    CURRENCIES,
   } = useLocalization()
 
   const [query, setQuery] = useState(searchValue)
@@ -59,7 +56,6 @@ export default function FigmaHeader({
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
-  const [currDropdownOpen, setCurrDropdownOpen] = useState(false)
 
   // Modal states
   const [activeModal, setActiveModal] = useState(null) // 'tracking' | 'faq' | 'about' | 'contact' | 'giftcards' | 'specialevent'
@@ -67,7 +63,6 @@ export default function FigmaHeader({
   const userMenuRef = useRef(null)
   const catMenuRef = useRef(null)
   const langMenuRef = useRef(null)
-  const currMenuRef = useRef(null)
 
   useEffect(() => {
     setQuery(searchValue)
@@ -83,9 +78,6 @@ export default function FigmaHeader({
       }
       if (langMenuRef.current && !langMenuRef.current.contains(e.target)) {
         setLangDropdownOpen(false)
-      }
-      if (currMenuRef.current && !currMenuRef.current.contains(e.target)) {
-        setCurrDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleOutside)
@@ -143,41 +135,6 @@ export default function FigmaHeader({
                         <span className="lang-flag">{lang.flag}</span>
                         <span className="lang-name">{lang.label}</span>
                         {language === lang.code && <Check size={14} className="ml-auto" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Currency Selector Dropdown */}
-              <div className="figma-select-wrapper" ref={currMenuRef}>
-                <button
-                  type="button"
-                  className="figma-select-pill"
-                  onClick={() => {
-                    setCurrDropdownOpen(!currDropdownOpen)
-                    setLangDropdownOpen(false)
-                  }}
-                  aria-label="Select Currency"
-                >
-                  <span>{currentCurrObj.symbol} {currentCurrObj.code}</span>
-                  <ChevronDown size={12} strokeWidth={2.5} />
-                </button>
-                {currDropdownOpen && (
-                  <div className="figma-select-dropdown">
-                    {CURRENCIES.map((curr) => (
-                      <button
-                        key={curr.code}
-                        type="button"
-                        className={`figma-select-item ${currency === curr.code ? 'active' : ''}`}
-                        onClick={() => {
-                          setCurrency(curr.code)
-                          setCurrDropdownOpen(false)
-                        }}
-                      >
-                        <span className="curr-sym">{curr.symbol}</span>
-                        <span className="curr-code">{curr.code}</span>
-                        {currency === curr.code && <Check size={14} className="ml-auto" />}
                       </button>
                     ))}
                   </div>
@@ -409,14 +366,6 @@ export default function FigmaHeader({
                 <select value={language} onChange={(e) => setLanguage(e.target.value)} className="figma-mobile-select">
                   {LANGUAGES.map((l) => (
                     <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="figma-mobile-select-row">
-                <span>Currency:</span>
-                <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="figma-mobile-select">
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
                   ))}
                 </select>
               </div>

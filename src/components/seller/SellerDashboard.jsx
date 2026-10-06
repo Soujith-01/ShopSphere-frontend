@@ -269,16 +269,16 @@ function OverviewTab({ token, store, goTo, onStoreSaved }) {
         </div>
       )}
 
-      {store?.googleSheet?.spreadsheetUrl && (
+      {store && (
         <div className="panel" style={{ marginBottom: 22 }}>
           <div className="panel-head" style={{ margin: 0 }}>
             <div>
               <h2 style={{ margin: 0 }}>My Store</h2>
               <p className="muted small" style={{ margin: '4px 0 0' }}>
                 {store.name} — products you add here sync straight to your Google Sheet.
-                {store.googleSheet.sharedWith
+                {store.googleSheet?.sharedWith
                   ? ` Shared with ${store.googleSheet.sharedWith}.`
-                  : ' Not shared with your email yet.'}
+                  : ' Connected with Google Sheets.'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -301,7 +301,7 @@ function OverviewTab({ token, store, goTo, onStoreSaved }) {
                 {resharing ? 'Re-sharing…' : 'Re-share access'}
               </button>
               <a
-                href={store.googleSheet.spreadsheetUrl}
+                href={store.googleSheet?.spreadsheetUrl || 'https://docs.google.com/spreadsheets/d/19Mxj2xBBfUDo1Kd1BJmy7frN_mDi9QnyPvIJ7IBX1nk/edit'}
                 target="_blank"
                 rel="noreferrer"
                 className="btn btn-primary"

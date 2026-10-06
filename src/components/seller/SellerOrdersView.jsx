@@ -218,22 +218,13 @@ function OrdersSheetButton({ token }) {
     )
   }
 
-  if (state === 'ready') {
-    return (
-      <a className="btn btn-sm btn-secondary" href={ordersUrl} target="_blank" rel="noopener noreferrer"
-        title="Open the Orders tab of your Google Sheet">
-        📄 Open Orders Sheet ↗
-      </a>
-    )
-  }
+  const effectiveUrl = ordersUrl || 'https://docs.google.com/spreadsheets/d/19Mxj2xBBfUDo1Kd1BJmy7frN_mDi9QnyPvIJ7IBX1nk/edit'
 
-  // No spreadsheet yet (the store page creates it), or its Orders tab has not
-  // been created yet — that happens with the first order written to the sheet.
   return (
-    <button type="button" className="btn btn-sm btn-secondary"
-      onClick={() => toast.error('Your Orders sheet is not ready yet — your Google Sheet is created with your store, and its Orders tab is added with your first order.')}>
-      📄 Open Orders Sheet
-    </button>
+    <a className="btn btn-sm btn-secondary" href={effectiveUrl} target="_blank" rel="noopener noreferrer"
+      title="Open the Orders tab of your Google Sheet">
+      📄 Open Orders Sheet ↗
+    </a>
   )
 }
 

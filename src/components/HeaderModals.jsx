@@ -460,18 +460,18 @@ export function ContactModal({ isOpen, onClose }) {
 export function GiftCardModal({ isOpen, onClose }) {
   const { t, formatPrice } = useLocalization()
   const toast = useToast()
-  const [amount, setAmount] = useState(50)
+  const [amount, setAmount] = useState(500)
   const [recipient, setRecipient] = useState('')
   const [redeemCode, setRedeemCode] = useState('')
   const [activeTab, setActiveTab] = useState('buy')
 
   if (!isOpen) return null
 
-  const amounts = [25, 50, 100, 200, 500]
+  const amounts = [250, 500, 1000, 2000, 5000]
 
   const handleBuy = (e) => {
     e.preventDefault()
-    toast.success(`Gift card of $${amount} created! Code sent to ${recipient || 'your email'}.`)
+    toast.success(`Gift card of ₹${amount} created! Code sent to ${recipient || 'your email'}.`)
     onClose()
   }
 
@@ -481,7 +481,7 @@ export function GiftCardModal({ isOpen, onClose }) {
       toast.error('Please enter a valid gift card code')
       return
     }
-    toast.success(`Gift card code ${redeemCode.toUpperCase()} verified! $50 added to your wallet balance.`)
+    toast.success(`Gift card code ${redeemCode.toUpperCase()} verified! ₹500 added to your wallet balance.`)
     onClose()
   }
 
@@ -528,7 +528,7 @@ export function GiftCardModal({ isOpen, onClose }) {
                   className={`figma-amount-chip ${amount === val ? 'active' : ''}`}
                   onClick={() => setAmount(val)}
                 >
-                  ${val}
+                  ₹{val}
                 </button>
               ))}
             </div>
@@ -545,7 +545,7 @@ export function GiftCardModal({ isOpen, onClose }) {
             </label>
 
             <button type="submit" className="figma-btn-primary-pill w-full">
-              {t('buyNow')} — ${amount}
+              {t('buyNow')} — ₹{amount}
             </button>
           </form>
         ) : (
@@ -583,7 +583,7 @@ export function SpecialEventModal({ isOpen, onClose }) {
     {
       code: 'SUMMER25',
       title: 'Summer Fashion Splash — 25% OFF',
-      desc: 'Valid on all summer apparel, shirts, shorts, and activewear orders above $40.',
+      desc: 'Valid on all summer apparel, shirts, shorts, and activewear orders above ₹499.',
       expiry: 'Ends in 3 days',
       discount: '25% OFF',
     },
@@ -597,9 +597,9 @@ export function SpecialEventModal({ isOpen, onClose }) {
     {
       code: 'WELCOME50',
       title: 'New Customer Welcome Coupon',
-      desc: 'Flat $10 instant discount on your first purchase of $50 or more.',
+      desc: 'Flat ₹100 instant discount on your first purchase of ₹499 or more.',
       expiry: 'Valid for new members',
-      discount: '$10 OFF',
+      discount: '₹100 OFF',
     },
   ]
 

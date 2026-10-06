@@ -3,7 +3,7 @@ import {
   getCategories, getProductReviews,
   sellerCreateProduct, sellerUpdateProduct, sellerUpdateProductStock,
   sellerGetProducts, sellerGetProduct, sellerDeleteProduct, sellerSubmitProduct,
-  sellerSyncFromSheet,
+  sellerSyncFromSheet, sellerGetSheets,
   sellerCreateVariant, sellerUpdateVariant, sellerDeleteVariant,
   sellerDiscardImages, sellerUploadImage,
   generateDescriptionAI, chatDescriptionAI,
@@ -32,6 +32,15 @@ export default function SellerProductsView({ token, store }) {
   const [reviewsFor, setReviewsFor] = useState(null)
   const [restockItem, setRestockItem] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const [sheetsInfo, setSheetsInfo] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    sellerGetSheets(token)
+      .then((res) => { if (!cancelled) setSheetsInfo(res.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [token, refresh])
 
   const load = async () => {
     setLoading(true)
@@ -103,6 +112,13 @@ export default function SellerProductsView({ token, store }) {
     }
   }
 
+  const spreadsheetUrl =
+    sheetsInfo?.spreadsheetUrl ||
+    store?.googleSheet?.spreadsheetUrl ||
+    (store?.googleSheet?.spreadsheetId
+      ? `https://docs.google.com/spreadsheets/d/${store.googleSheet.spreadsheetId}/edit`
+      : 'https://docs.google.com/spreadsheets/d/19Mxj2xBBfUDo1Kd1BJmy7frN_mDi9QnyPvIJ7IBX1nk/edit')
+
   return (
     <div>
       <div className="filters">
@@ -111,20 +127,38 @@ export default function SellerProductsView({ token, store }) {
             onChange={(e) => setSearch(e.target.value)} />
           <button type="submit" className="btn btn-primary btn-sm">Search</button>
         </form>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditing('new')}>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>
           + New product
         </button>
-        {store?.googleSheet?.spreadsheetUrl && (
+        {spreadsheetUrl ? (
+          <a
+            href={spreadsheetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary btn-sm"
+            title="Open your store Google Spreadsheet in a new tab"
+          >
+            📊 Open Google Sheet ↗
+          </a>
+        ) : (
           <button
             type="button"
             className="btn btn-secondary btn-sm"
-            onClick={handleSyncFromSheet}
-            disabled={syncing}
-            title="Create products from new rows in your Google Sheet and apply your edits to existing ones"
+            onClick={() => toast.info('Google Sheet is being provisioned for your store. Visit the My Store tab to view or reshare.')}
+            title="Open Google Sheet"
           >
-            {syncing ? <><Spinner small /> Syncing…</> : '🔄 Sync from Google Sheet'}
+            📊 Open Google Sheet
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={handleSyncFromSheet}
+          disabled={syncing}
+          title="Create products from new rows in your Google Sheet and apply your edits to existing ones"
+        >
+          {syncing ? <><Spinner small /> Syncing…</> : '🔄 Sync from Google Sheet'}
+        </button>
       </div>
 
       <div className="filters-status">

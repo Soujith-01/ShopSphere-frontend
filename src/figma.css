@@ -969,6 +969,105 @@
   color: #ffffff;
 }
 
+.figma-product-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.figma-product-store {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.08);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.figma-product-cat {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.figma-product-discount-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+  z-index: 5;
+}
+
+/* Skeleton Loading */
+.figma-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.figma-skeleton-img {
+  width: 100%;
+  aspect-ratio: 1.15;
+  background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
+  background-size: 200% 100%;
+  animation: figmaShimmer 1.5s infinite;
+  border-radius: var(--radius-card);
+}
+
+.figma-skeleton-text {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
+  background-size: 200% 100%;
+  animation: figmaShimmer 1.5s infinite;
+}
+
+.figma-skeleton-text.short {
+  width: 50%;
+}
+
+@keyframes figmaShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.figma-empty-products {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: #fafafa;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  text-align: center;
+  gap: 14px;
+}
+
+.figma-empty-products h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.figma-empty-products p {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 400px;
+}
+
 /* ── Explore by Colors Section ───────────────────────────────── */
 .figma-colors-section {
   padding: 40px 0 60px;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   getCart, updateCartItem, removeCartItem, clearCart,
   applyCoupon, removeCoupon, getCustomerMe, checkout,
+  createPaymentOrder, verifyPayment, reportPaymentFailure,
 } from '../../api.js'
 import { formatINR, PAYMENT_METHOD_LABELS, productImageUrl } from '../../format.js'
 import { navigate } from '../../router.js'
@@ -9,7 +10,7 @@ import { useToast } from '../../toast.js'
 import Loading from '../Loading.jsx'
 import Spinner from '../Spinner.jsx'
 
-const ONLINE_METHODS = ['upi', 'card', 'net_banking']
+const ONLINE_METHODS = ['razorpay', 'upi', 'card', 'net_banking']
 
 export default function CartView({ token, onCartChanged }) {
   const toast = useToast()
@@ -223,7 +224,7 @@ export default function CartView({ token, onCartChanged }) {
         >
           Proceed to checkout
         </button>
-        <p className="muted small">Checkout places your order with the seller. No payment gateway is connected yet.</p>
+        <p className="muted small">Secure checkout powered by Razorpay Test Mode and Cash on Delivery.</p>
       </aside>
 
       {checkoutOpen && (
@@ -238,13 +239,27 @@ export default function CartView({ token, onCartChanged }) {
   )
 }
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      return resolve(true)
+    }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 function CheckoutModal({ token, total, onClose, onPlaced }) {
   const toast = useToast()
   const [me, setMe] = useState(null)
   const [addressId, setAddressId] = useState('')
   const [newAddress, setNewAddress] = useState({ fullName: '', phone: '', street: '', pincode: '' })
   const [useNewAddress, setUseNewAddress] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('cod')
+  const [paymentMethod, setPaymentMethod] = useState('razorpay')
   const [customerNote, setCustomerNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)
@@ -264,22 +279,121 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
 
   const handlePlace = async (e) => {
     e.preventDefault()
-    if (!canSubmit) return
+    if (!canSubmit || busy) return
+
     setBusy(true)
-    try {
-      const body = {
-        paymentMethod,
-        customerNote: customerNote.trim() || undefined,
-        ...(useNewAddress ? { address: newAddress } : { shippingAddressId: addressId }),
+
+    const selectedAddress = useNewAddress
+      ? newAddress
+      : me?.addresses?.find((a) => a._id === addressId)
+
+    const orderPayload = {
+      paymentMethod,
+      customerNote: customerNote.trim() || undefined,
+      ...(useNewAddress ? { address: newAddress } : { shippingAddressId: addressId }),
+    }
+
+    // ─── Cash On Delivery Flow ────────────────────────────────────────────────
+    if (paymentMethod === 'cod') {
+      try {
+        const res = await checkout(token, orderPayload)
+        setDone(res.data)
+        toast.success('Order placed successfully!')
+      } catch (err) {
+        if (err.status !== 401) toast.error(err.message || 'Failed to place order')
+      } finally {
+        setBusy(false)
       }
-      const res = await checkout(token, body)
-      setDone(res.data)
-      // Don't close the modal here — the success screen (green tick + track
-      // button) must stay visible until the user acts on it. onPlaced() is
-      // invoked from the buttons/backdrop below.
+      return
+    }
+
+    // ─── Razorpay Online Payment Flow ─────────────────────────────────────────
+    try {
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded || !window.Razorpay) {
+        toast.error('Failed to load Razorpay payment SDK. Please check your internet connection.')
+        setBusy(false)
+        return
+      }
+
+      // Step 1: Create Razorpay order on backend (amount calculated strictly from MongoDB)
+      const createRes = await createPaymentOrder(token, orderPayload)
+      if (!createRes.success || !createRes.data) {
+        throw new Error(createRes.message || 'Failed to initialize payment')
+      }
+
+      const { razorpayOrderId, amount, amountInRupees, keyId, currency } = createRes.data
+
+      // Step 2: Open Razorpay Checkout modal
+      const options = {
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: amount, // in paise
+        currency: currency || 'INR',
+        name: 'ShopSphere',
+        description: `Order Payment · ${formatINR(amountInRupees || total)}`,
+        order_id: razorpayOrderId,
+        prefill: {
+          name: selectedAddress?.fullName || me?.name || '',
+          email: me?.email || '',
+          contact: selectedAddress?.phone || me?.phone || '',
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+        handler: async function (response) {
+          // Razorpay payment completed by customer -> verify signature and finalize order on backend
+          try {
+            setBusy(true)
+            const verifyPayload = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              paymentMethod,
+              customerNote: customerNote.trim() || undefined,
+              ...(useNewAddress ? { address: newAddress } : { shippingAddressId: addressId }),
+            }
+
+            const verifyRes = await verifyPayment(token, verifyPayload)
+            setDone({
+              ...verifyRes.data,
+              razorpayPaymentId: response.razorpay_payment_id,
+              paidAmount: amountInRupees || total,
+            })
+            toast.success('Payment verified & order placed successfully!')
+          } catch (verifyErr) {
+            toast.error(verifyErr.message || 'Payment verification failed')
+          } finally {
+            setBusy(false)
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setBusy(false)
+            toast.info('Payment window closed. Your cart remains saved.')
+            reportPaymentFailure(token, {
+              razorpay_order_id: razorpayOrderId,
+              failureReason: 'User closed the Razorpay payment window',
+            }).catch(() => {})
+          },
+        },
+      }
+
+      const rzp = new window.Razorpay(options)
+
+      rzp.on('payment.failed', function (failResp) {
+        setBusy(false)
+        const reason = failResp.error?.description || 'Payment failed. Please try again.'
+        toast.error(reason)
+        reportPaymentFailure(token, {
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: failResp.error?.metadata?.payment_id,
+          failureReason: reason,
+        }).catch(() => {})
+      })
+
+      rzp.open()
     } catch (err) {
-      if (err.status !== 401) toast.error(err.message)
-    } finally {
+      if (err.status !== 401) toast.error(err.message || 'Failed to initiate payment')
       setBusy(false)
     }
   }
@@ -294,6 +408,9 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
   }
 
   if (done) {
+    const paymentId = done.payment?.razorpayPaymentId || done.razorpayPaymentId
+    const orderNum = done.subOrders?.[0]?.orderNumber || done.parentOrder?.orderNumber || 'Confirmed'
+
     return (
       <div className="modal-backdrop" onClick={handleClose}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -303,24 +420,41 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
               <path fill="none" d="M14 27l8 8 16-16" />
             </svg>
           </div>
-          <h2>Order placed!</h2>
+          <h2>Payment Successful & Order Placed!</h2>
           <p>
-            Your order was split into <strong>{done.subOrders.length}</strong> seller
-            {done.subOrders.length > 1 ? 's' : ''} for fulfilment.
+            Your order was split into <strong>{done.subOrders?.length || 1}</strong> seller
+            {(done.subOrders?.length || 1) > 1 ? 's' : ''} for fulfilment.
           </p>
-          {paymentMethod === 'cod' ? (
-            <p className="muted">You'll pay cash on delivery.</p>
-          ) : (
-            <p className="muted">
-              Your {PAYMENT_METHOD_LABELS[paymentMethod]} payment is <strong>pending</strong> —
-              the online payment gateway is not connected yet, so no money has been charged.
-            </p>
-          )}
-          <div className="modal-actions" style={{ justifyContent: 'center' }}>
+
+          <div className="order-success-details" style={{
+            background: 'var(--surface-sunken, rgba(0,0,0,0.03))',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            margin: '16px 0',
+            textAlign: 'left',
+            fontSize: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+          }}>
+            <div><strong>Order:</strong> {orderNum}</div>
+            {paymentId && <div><strong>Razorpay Payment ID:</strong> <code>{paymentId}</code></div>}
+            <div><strong>Amount:</strong> {formatINR(done.paidAmount || done.parentOrder?.total || total)}</div>
+            <div>
+              <strong>Payment Status:</strong>{' '}
+              <span className="badge badge-success">
+                {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid (Razorpay Test Mode)'}
+              </span>
+            </div>
+          </div>
+
+          <div className="modal-actions" style={{ justifyContent: 'center', gap: '12px' }}>
             <button type="button" className="btn btn-primary" onClick={handleTrackOrder}>
               Track order
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handleClose}>Done</button>
+            <button type="button" className="btn btn-secondary" onClick={handleClose}>
+              Continue Shopping
+            </button>
           </div>
         </div>
       </div>
@@ -380,14 +514,19 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
           <div className="fieldset">
             <p className="fieldset-title">Payment method</p>
             <select className="select" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="cod">Cash on Delivery</option>
-              <option value="upi">UPI</option>
-              <option value="card">Card</option>
-              <option value="net_banking">Net Banking</option>
+              <option value="razorpay">Razorpay Test Mode (Cards, UPI, NetBanking, Wallets)</option>
+              <option value="upi">UPI (via Razorpay)</option>
+              <option value="card">Credit / Debit Card (via Razorpay)</option>
+              <option value="net_banking">Net Banking (via Razorpay)</option>
+              <option value="cod">Cash on Delivery (COD)</option>
             </select>
-            {ONLINE_METHODS.includes(paymentMethod) && (
+            {ONLINE_METHODS.includes(paymentMethod) ? (
               <p className="muted small">
-                Online payment isn't wired to a gateway yet — your order will be placed as <strong>pending payment</strong>.
+                💳 Razorpay Test Mode enabled. You will complete payment via a test card, UPI ID, or net banking simulation.
+              </p>
+            ) : (
+              <p className="muted small">
+                💵 You will pay cash upon delivery of your items.
               </p>
             )}
           </div>
@@ -399,7 +538,11 @@ function CheckoutModal({ token, total, onClose, onPlaced }) {
           </label>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={busy || !canSubmit}>
-            {busy ? <><Spinner small /> Placing order…</> : `Place order · ${formatINR(total)}`}
+            {busy ? (
+              <><Spinner small /> {paymentMethod === 'cod' ? 'Placing order…' : 'Opening Razorpay…'}</>
+            ) : (
+              paymentMethod === 'cod' ? `Place order · ${formatINR(total)}` : `Proceed to Payment · ${formatINR(total)}`
+            )}
           </button>
         </form>
       </div>

@@ -4,9 +4,13 @@
 // (e.g. in Frontend/.env:  VITE_API_BASE_URL=http://localhost:3000/api).
 // CORS on the backend already allows http://localhost:5173.
 
-const envUrl = import.meta.env.VITE_API_BASE_URL || 'https://shopsphere-backend-ilr1.onrender.com/api'
+const defaultUrl = import.meta.env.DEV
+  ? 'http://localhost:3000/api'
+  : 'https://shopsphere-backend-ilr1.onrender.com/api'
+
+const envUrl = import.meta.env.VITE_API_BASE_URL || defaultUrl
 export const API_BASE_URL = (
-  envUrl.includes(':4000') ? 'https://shopsphere-backend-ilr1.onrender.com/api' : envUrl
+  envUrl.includes(':4000') ? defaultUrl : envUrl
 ).replace(/\/+$/, '')
 
 function buildQuery(params = {}) {
@@ -111,12 +115,41 @@ export const getSession = () => {
 }
 
 // ─── Products & categories (public) ─────────────────────────────────────────
-export const getProducts = (token, params = {}) =>
-  request(`/customer/products${buildQuery(params)}`, { token })
-export const getFeaturedProducts = (token, limit = 12) =>
-  request(`/customer/products/featured${buildQuery({ limit })}`, { token })
-export const getProductBySlug = (token, slug) =>
-  request(`/customer/products/${slug}`, { token })
+export const getProducts = (tokenOrParams, maybeParams = {}) => {
+  let token = undefined
+  let params = {}
+  if (typeof tokenOrParams === 'string') {
+    token = tokenOrParams
+    params = maybeParams || {}
+  } else if (typeof tokenOrParams === 'object' && tokenOrParams !== null) {
+    params = tokenOrParams
+  }
+  return request(`/customer/products${buildQuery(params)}`, { token })
+}
+
+export const getFeaturedProducts = (tokenOrLimit, maybeLimit = 12) => {
+  let token = undefined
+  let limit = 12
+  if (typeof tokenOrLimit === 'string') {
+    token = tokenOrLimit
+    limit = typeof maybeLimit === 'number' ? maybeLimit : 12
+  } else if (typeof tokenOrLimit === 'number') {
+    limit = tokenOrLimit
+  }
+  return request(`/customer/products/featured${buildQuery({ limit })}`, { token })
+}
+
+export const getProductBySlug = (tokenOrSlug, maybeSlug) => {
+  let token = undefined
+  let slug = ''
+  if (maybeSlug !== undefined) {
+    token = typeof tokenOrSlug === 'string' ? tokenOrSlug : undefined
+    slug = maybeSlug
+  } else {
+    slug = tokenOrSlug
+  }
+  return request(`/customer/products/${slug}`, { token })
+}
 export const getProductQA = (slug) =>
   request(`/customer/products/${slug}/qa`)
 export const getCategories = () => request('/customer/categories')
@@ -153,6 +186,16 @@ export const cancelOrder = (token, orderId, reason = '') =>
   request(`/customer/orders/${orderId}/cancel`, { method: 'PUT', body: { reason }, token })
 export const checkout = (token, body) =>
   request('/customer/orders/checkout', { method: 'POST', body, token })
+
+// ─── Payments & Razorpay (protected) ────────────────────────────────────────
+export const getRazorpayKey = (token) =>
+  request('/customer/payments/key', { token })
+export const createPaymentOrder = (token, body) =>
+  request('/customer/payments/create-order', { method: 'POST', body, token })
+export const verifyPayment = (token, body) =>
+  request('/customer/payments/verify', { method: 'POST', body, token })
+export const reportPaymentFailure = (token, body) =>
+  request('/customer/payments/failure', { method: 'POST', body, token })
 
 // ─── Users / profile / addresses (protected) ────────────────────────────────
 export const getCustomerMe = (token) => request('/customer/users/me', { token })

@@ -31,6 +31,7 @@ export const ORDER_STATUS_LABELS = {
 }
 
 export const PAYMENT_METHOD_LABELS = {
+  razorpay: 'Razorpay (Online)',
   cod: 'Cash on Delivery',
   upi: 'UPI',
   card: 'Card',
@@ -40,7 +41,7 @@ export const PAYMENT_METHOD_LABELS = {
 }
 
 export const payStatusLabel = (status) =>
-  status === 'completed' ? 'Paid' : status === 'pending' ? 'Pending' : status === 'refunded' ? 'Refunded' : 'Failed'
+  status === 'completed' || status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending' : status === 'refunded' ? 'Refunded' : 'Failed'
 
 // CSS flavour class for badges: status | success | danger | muted
 export const orderStatusFlavor = (status) => {
@@ -52,7 +53,7 @@ export const orderStatusFlavor = (status) => {
 }
 
 export const payStatusFlavor = (status) => {
-  if (status === 'completed') return 'success'
+  if (status === 'completed' || status === 'paid') return 'success'
   if (status === 'refunded') return 'status'
   if (status === 'failed') return 'danger'
   return 'muted'

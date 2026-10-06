@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { getProducts, getCategories, getCart, addToCart, getWishlist, toggleWishlist, getSession } from '../api.js'
 import { navigate } from '../router.js'
-import { productImageUrl } from '../format.js'
+import { productImageUrl, formatINR, getDiscountLabel } from '../format.js'
 import { useToast } from '../toast.js'
 import { useLocalization } from '../i18n.jsx'
 import FigmaHeader from './FigmaHeader.jsx'
@@ -27,15 +27,15 @@ import {
   FIGMA_IMAGES,
   FIGMA_COLORS,
   FIGMA_CATEGORY_TABS,
-  FIGMA_SAMPLE_PRODUCTS,
 } from '../assets/figmaAssets.js'
 import '../figma.css'
 
 export default function Landing() {
   const toast = useToast()
   const session = getSession()
-  const { t, formatPrice, language, currency } = useLocalization()
-  const [products, setProducts] = useState(FIGMA_SAMPLE_PRODUCTS)
+  const { t, formatPrice, language } = useLocalization()
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
   const [categories, setCategories] = useState([])
   const [activeTab, setActiveTab] = useState('all')
   const [activeColor, setActiveColor] = useState(null)
@@ -53,28 +53,31 @@ export default function Landing() {
     return () => window.removeEventListener('shopsphere:open-modal', handleOpenModal)
   }, [])
 
-  // Load real products & categories from API
+  // Load real recent products from all stores & categories from API
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+
     getCategories()
       .then((res) => {
         if (!cancelled && res.data) setCategories(res.data)
       })
       .catch(() => {})
 
-    getProducts({ limit: 24 })
+    getProducts({ sort: 'newest', limit: 30 })
       .then((res) => {
-        if (!cancelled && res.data?.length > 0) {
-          const sorted = [...res.data].sort((a, b) => {
-            const hasImgA = productImageUrl(a) ? 1 : 0
-            const hasImgB = productImageUrl(b) ? 1 : 0
-            return hasImgB - hasImgA
-          })
-          setProducts(sorted)
+        if (!cancelled) {
+          const list = Array.isArray(res.data) ? res.data : []
+          setProducts(list)
+          setLoading(false)
         }
       })
-      .catch(() => {
-        // Fallback to sample data
+      .catch((err) => {
+        console.error('Failed to load recent uploads:', err)
+        if (!cancelled) {
+          setProducts([])
+          setLoading(false)
+        }
       })
 
     if (session?.token) {
@@ -131,11 +134,18 @@ export default function Landing() {
     }
   }
 
-  // Filter products by tab & color
+  // Filter products by dynamic tab & color
   const filteredProducts = products.filter((p) => {
     if (activeTab !== 'all') {
-      const matchCat = (p.category?.name || p.category || '').toLowerCase().includes(activeTab) ||
-        (p.name || '').toLowerCase().includes(activeTab)
+      const catId = String(p.category?._id || p.category || '').toLowerCase()
+      const catSlug = String(p.category?.slug || '').toLowerCase()
+      const catName = String(p.category?.name || '').toLowerCase()
+      const tabStr = String(activeTab).toLowerCase()
+      const matchCat = catId === tabStr ||
+        catSlug === tabStr ||
+        catName === tabStr ||
+        catName.includes(tabStr) ||
+        (p.name || '').toLowerCase().includes(tabStr)
       if (!matchCat) return false
     }
     if (activeColor) {
@@ -145,17 +155,15 @@ export default function Landing() {
       if (!matchColor) return false
     }
     return true
-  }).slice(0, 9)
+  })
 
-  const displayedProducts = filteredProducts.length > 0 ? filteredProducts : products.slice(0, 9)
-
-  // Translated tab labels
-  const tabLabels = {
-    all: t('all'),
-    latest: t('latest'),
-    popular: t('popular'),
-    sale: t('sale'),
-  }
+  // Dynamic Category Tabs from DB categories or fallback
+  const categoryTabs = [
+    { id: 'all', label: t('all', 'All') },
+    ...(categories && categories.length > 0
+      ? categories.slice(0, 6).map((c) => ({ id: c._id || c.slug || c.name, label: c.name }))
+      : FIGMA_CATEGORY_TABS),
+  ]
 
   return (
     <div className="figma-landing-wrapper">
@@ -268,13 +276,13 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ── 3. Trending Products Section ────────────────────── */}
+        {/* ── 3. Recent Uploads Section ──────────────────────── */}
         <section className="figma-trending-section">
           <div className="figma-container">
             <div className="figma-trending-header">
-              <h2 className="figma-section-title">{t('trending')}</h2>
+              <h2 className="figma-section-title">Recent Uploads</h2>
               <div className="figma-category-tabs">
-                {FIGMA_CATEGORY_TABS.map((tab) => (
+                {categoryTabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
@@ -284,61 +292,104 @@ export default function Landing() {
                       setActiveColor(null)
                     }}
                   >
-                    {tabLabels[tab.id] || tab.label}
+                    {tab.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="figma-product-grid">
-              {displayedProducts.map((product) => {
-                const img = productImageUrl(product)
-                const isWish = wishlistIds.has(product._id)
-                return (
-                  <div
-                    key={product._id}
-                    className="figma-product-card"
-                    onClick={() => setSelectedProduct(product)}
+              {loading ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="figma-skeleton-card">
+                    <div className="figma-skeleton-img" />
+                    <div className="figma-skeleton-text short" />
+                    <div className="figma-skeleton-text" />
+                  </div>
+                ))
+              ) : filteredProducts.length === 0 ? (
+                <div className="figma-empty-products">
+                  <ShoppingBag size={44} strokeWidth={1.5} color="#9ca3af" />
+                  <h3>No products found in this category</h3>
+                  <p>Browse all available items from verified stores across ShopSphere.</p>
+                  <button
+                    type="button"
+                    className="figma-btn-primary-pill"
+                    onClick={() => {
+                      setActiveTab('all')
+                      setActiveColor(null)
+                    }}
                   >
-                    <div className="figma-product-img-wrapper">
-                      <button
-                        type="button"
-                        className={`figma-product-wishlist-btn ${isWish ? 'active' : ''}`}
-                        onClick={(e) => handleToggleWishlist(product._id, e)}
-                        aria-label="Wishlist"
-                      >
-                        <Heart size={16} strokeWidth={2.2} fill={isWish ? 'currentColor' : 'none'} />
-                      </button>
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={product.name}
-                          className="figma-product-img"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="figma-product-placeholder">
-                          <ShoppingBag size={34} strokeWidth={1.5} />
-                          <span>{product.name}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="figma-product-info">
-                      <h3 className="figma-product-title">{product.name}</h3>
-                      <div className="figma-product-card-bottom">
-                        <span className="figma-product-price">{formatPrice(product.price)}</span>
+                    View All Products
+                  </button>
+                </div>
+              ) : (
+                filteredProducts.slice(0, 12).map((product) => {
+                  const img = productImageUrl(product)
+                  const isWish = wishlistIds.has(product._id)
+                  const discountLabel = getDiscountLabel(product.discount)
+                  const storeName = product.store?.name || (typeof product.store === 'string' ? product.store : '')
+                  const catName = product.category?.name || (typeof product.category === 'string' ? product.category : '')
+
+                  return (
+                    <div
+                      key={product._id}
+                      className="figma-product-card"
+                      onClick={() => setSelectedProduct(product)}
+                    >
+                      <div className="figma-product-img-wrapper">
                         <button
                           type="button"
-                          className="figma-quick-add-btn"
-                          onClick={(e) => handleQuickAdd(product, e)}
+                          className={`figma-product-wishlist-btn ${isWish ? 'active' : ''}`}
+                          onClick={(e) => handleToggleWishlist(product._id, e)}
+                          aria-label="Wishlist"
                         >
-                          {t('add')}
+                          <Heart size={16} strokeWidth={2.2} fill={isWish ? 'currentColor' : 'none'} />
                         </button>
+                        {discountLabel && (
+                          <span className="figma-product-discount-badge">{discountLabel}</span>
+                        )}
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={product.name}
+                            className="figma-product-img"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="figma-product-placeholder">
+                            <ShoppingBag size={34} strokeWidth={1.5} />
+                            <span>{product.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="figma-product-info">
+                        <div className="figma-product-meta-row">
+                          {storeName && (
+                            <span className="figma-product-store" title={`Store: ${storeName}`}>
+                              {storeName}
+                            </span>
+                          )}
+                          {catName && (
+                            <span className="figma-product-cat">{catName}</span>
+                          )}
+                        </div>
+                        <h3 className="figma-product-title">{product.name}</h3>
+                        <div className="figma-product-card-bottom">
+                          <span className="figma-product-price">{formatINR(product.price)}</span>
+                          <button
+                            type="button"
+                            className="figma-quick-add-btn"
+                            onClick={(e) => handleQuickAdd(product, e)}
+                          >
+                            {t('add')}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
           </div>
         </section>

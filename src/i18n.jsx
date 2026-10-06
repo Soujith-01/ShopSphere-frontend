@@ -10,11 +10,7 @@ export const LANGUAGES = [
 ]
 
 export const CURRENCIES = [
-  { code: 'USD', symbol: '$', rate: 0.012, name: 'USD — US Dollar' },
   { code: 'INR', symbol: '₹', rate: 1.0, name: 'INR — Indian Rupee' },
-  { code: 'EUR', symbol: '€', rate: 0.011, name: 'EUR — Euro' },
-  { code: 'GBP', symbol: '£', rate: 0.0095, name: 'GBP — British Pound' },
-  { code: 'JPY', symbol: '¥', rate: 1.86, name: 'JPY — Japanese Yen' },
 ]
 
 export const TRANSLATIONS = {
@@ -70,7 +66,7 @@ export const TRANSLATIONS = {
     // Why Shop With Us
     whyShopTitle: 'Why Shop With Us?',
     fastDeliveryTitle: 'Fast & Secure Delivery',
-    fastDeliveryDesc: 'Free delivery on all orders over $50 with real-time GPS courier tracking.',
+    fastDeliveryDesc: 'Free delivery on all orders over ₹499 with real-time GPS courier tracking.',
     moneyBackTitle: '100% Money Back Guarantee',
     moneyBackDesc: 'Hassle-free 30-day return policy with instant refund processing.',
     supportTitle: '24/7 Dedicated Support',
@@ -179,7 +175,7 @@ export const TRANSLATIONS = {
     addedToCart: 'Añadido al carrito ✓',
     whyShopTitle: '¿Por qué comprar con nosotros?',
     fastDeliveryTitle: 'Entrega Rápida y Segura',
-    fastDeliveryDesc: 'Envío gratuito en pedidos superiores a $50 con seguimiento GPS en tiempo real.',
+    fastDeliveryDesc: 'Envío gratuito en pedidos superiores a ₹499 con seguimiento GPS en tiempo real.',
     moneyBackTitle: 'Garantía de Devolución 100%',
     moneyBackDesc: 'Política de devolución de 30 días sin complicaciones y reembolso rápido.',
     supportTitle: 'Soporte Dedicado 24/7',
@@ -377,7 +373,7 @@ export const TRANSLATIONS = {
     addedToCart: 'In den Warenkorb gelegt ✓',
     whyShopTitle: 'Warum bei uns einkaufen?',
     fastDeliveryTitle: 'Schnelle & Sichere Lieferung',
-    fastDeliveryDesc: 'Kostenloser Versand ab 50$ mit Live-GPS-Sendungsverfolgung.',
+    fastDeliveryDesc: 'Kostenloser Versand ab ₹499 mit Live-GPS-Sendungsverfolgung.',
     moneyBackTitle: '100% Geld-zurück-Garantie',
     moneyBackDesc: 'Unkomplizierte 30-Tage-Rückgabe mit sofortiger Erstattung.',
     supportTitle: '24/7 Kunden-Support',
@@ -641,7 +637,8 @@ export function LocalizationProvider({ children }) {
     return localStorage.getItem('shopsphere_lang') || 'en'
   })
   const [currency, setCurrencyState] = useState(() => {
-    return localStorage.getItem('shopsphere_curr') || 'USD'
+    const saved = localStorage.getItem('shopsphere_curr')
+    return saved === 'USD' ? 'INR' : (saved || 'INR')
   })
 
   const setLanguage = (langCode) => {
@@ -661,29 +658,7 @@ export function LocalizationProvider({ children }) {
 
   const formatPrice = (amountInINR) => {
     const num = Number(amountInINR) || 0
-    const currObj = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0]
-    
-    // Convert from base (INR) to selected currency
-    if (currency === 'INR') {
-      return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-    }
-    if (currency === 'USD') {
-      const converted = num * 0.012
-      return `$${converted.toFixed(2)}`
-    }
-    if (currency === 'EUR') {
-      const converted = num * 0.011
-      return `€${converted.toFixed(2)}`
-    }
-    if (currency === 'GBP') {
-      const converted = num * 0.0095
-      return `£${converted.toFixed(2)}`
-    }
-    if (currency === 'JPY') {
-      const converted = Math.round(num * 1.86)
-      return `¥${converted.toLocaleString()}`
-    }
-    return `$${(num * 0.012).toFixed(2)}`
+    return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
   }
 
   const currentLangObj = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0]
@@ -717,11 +692,11 @@ export function useLocalization() {
       language: 'en',
       setLanguage: () => {},
       currentLangObj: LANGUAGES[0],
-      currency: 'USD',
+      currency: 'INR',
       setCurrency: () => {},
       currentCurrObj: CURRENCIES[0],
       t: (k, d) => TRANSLATIONS.en[k] || d || k,
-      formatPrice: (amt) => `$${(Number(amt || 0) * 0.012).toFixed(2)}`,
+      formatPrice: (amt) => `₹${Number(amt || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
       LANGUAGES,
       CURRENCIES,
     }
