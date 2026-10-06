@@ -118,7 +118,10 @@ export default function Login({ onSwitchToRegister, onAuthed, onBack }) {
               <button type="button" className="glass-back-btn" onClick={handleBack}>
                 <ArrowLeft size={15} /> Back to Store
               </button>
-              <span className="glass-mobile-brand">Eazy</span>
+              <div className="glass-mobile-brand-wrap" onClick={handleBack} role="button" tabIndex={0}>
+                <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img mobile-brand-logo-img" />
+                <span className="glass-mobile-brand">Eazy</span>
+              </div>
             </div>
 
             {/* Status Case 1: Account Deactivated */}

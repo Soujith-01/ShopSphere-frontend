@@ -74,8 +74,8 @@ export default function SupportDashboard({ session, onLogout }) {
   return (
     <div className="dashboard">
       <aside className="sidebar">
-        <div className="brand sidebar-brand">
-          <ShoppingBag size={22} strokeWidth={2.2} className="brand-icon" />
+        <div className="brand sidebar-brand" onClick={() => navigate('/')} role="button" tabIndex={0} title="Back to Store">
+          <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img sidebar-logo-img" />
           <span>Eazy</span>
         </div>
         <nav className="sidebar-nav">

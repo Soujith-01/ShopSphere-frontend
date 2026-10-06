@@ -122,20 +122,18 @@
 }
 
 .glass-brand-icon-box {
-  width: 44px;
+  width: auto;
   height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
-  color: #ffffff;
+  border-radius: 12px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px -4px rgba(13, 148, 136, 0.4);
   transition: transform 0.2s ease;
 }
 
 .glass-brand-header:hover .glass-brand-icon-box {
-  transform: scale(1.05) rotate(-3deg);
+  transform: scale(1.05);
 }
 
 .glass-brand-text {

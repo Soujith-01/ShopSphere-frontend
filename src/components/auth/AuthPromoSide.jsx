@@ -24,7 +24,7 @@ export default function AuthPromoSide({ mode = 'login' }) {
         {/* Top Brand Tag */}
         <div className="glass-brand-header" onClick={() => navigate('/')} role="button" tabIndex={0}>
           <div className="glass-brand-icon-box">
-            <ShoppingBag size={24} strokeWidth={2.3} className="glass-brand-svg" />
+            <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img glass-brand-logo-img" />
           </div>
           <div className="glass-brand-text">
             <span className="glass-brand-title">Eazy</span>

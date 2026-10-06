@@ -337,6 +337,12 @@
   padding: 0 8px 18px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-brand:hover .sidebar-logo-img {
+  transform: scale(1.06);
 }
 
 .sidebar-brand .brand-icon {

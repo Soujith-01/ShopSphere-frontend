@@ -187,6 +187,7 @@ export default function FigmaHeader({
           <div className="figma-container figma-navbar-inner">
             {/* Logo */}
             <button className="figma-logo" onClick={() => navigate('/')}>
+              <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img" />
               <span>EAZY</span>
             </button>
 

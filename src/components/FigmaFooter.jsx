@@ -35,9 +35,12 @@ export default function FigmaFooter({ onOpenModal }) {
         {/* Top Newsletter & Brand Column */}
         <div className="figma-footer-main-grid">
           <div className="figma-footer-brand-col">
-            <h2 className="figma-footer-logo" onClick={() => navigate('/')}>
-              EAZY
-            </h2>
+            <div className="figma-footer-logo-wrap" onClick={() => navigate('/')}>
+              <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img figma-footer-logo-img" />
+              <h2 className="figma-footer-logo">
+                EAZY
+              </h2>
+            </div>
             <p className="figma-footer-desc">
               {t('footerAbout')}
             </p>

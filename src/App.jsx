@@ -166,7 +166,10 @@ export default function App() {
     return (
       <div className="app">
         <main className="role-gate">
-          <div className="brand">🛍️ Eazy</div>
+          <div className="brand" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/eazy-logo.png" alt="Eazy Logo" className="brand-logo-img" />
+            <span>Eazy</span>
+          </div>
           <div className="card">
             <div className="card-emoji">🔐</div>
             <h2>You're signed in as {role}</h2>
